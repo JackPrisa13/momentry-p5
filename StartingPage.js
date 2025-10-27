@@ -4,7 +4,7 @@
  */
 class StartingPage {
   constructor() {
-    this.title = "Welcome to Momentry - Your Life in Weeks";
+    this.title = "Welcome to Momentry - Your Life, One Week at a Time";
     this.subtitle = "Click to enter your date of birth";
     this.note = "(This will be saved locally)";
     this.titleColor = "#525349";
