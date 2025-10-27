@@ -5,11 +5,12 @@ class WeekCircle {
      * @param {number} id - The week number (0-51).
      * @param {object} data - A reference to the data object for this week (e.g., yearData[id]).
      */
-    constructor(x, y, size, id, data) {
+    constructor(x, y, size, id, weeksSinceBirth, data) {
       // --- Core Properties ---
         this.x = x;
         this.y = y;
         this.id = id;
+        this.weeksSinceBirth = weeksSinceBirth;
         this.data = data; // A *reference* to the data in sketch.js
         this.emptyColour = "#F5F4E3";
         this.emptyColourPast = "#BFC0B1";
@@ -79,9 +80,6 @@ class WeekCircle {
         let hasData = (this.data && this.data.memory && this.data.memory.length > 0);
         let isPast = (this.id < currentWeekIndex);
         let isCurrent = (this.id === currentWeekIndex);
-        let isFuture = (this.id > currentWeekIndex);
-
-        let fillColour = this.emptyColour;
 
         // Rule 1: Set fill colour based on data and time
         if (hasData) {
@@ -138,12 +136,20 @@ class WeekCircle {
             } else {
                 fill(this.emptyColour); // Light color for past/current weeks
             }
-            textAlign(CENTER, CENTER);
-            textSize(30);
+            textAlign(LEFT, TOP);
+            textSize(12);
             textStyle(ITALIC);
-            
-            // Draw the week number
-            text(this.id + 1, this.x, this.y);
+            text(this.id + 1, this.x - this.baseSize / 2 + 15, this.y - this.baseSize / 2 + 20);
+
+            // Weeks since birth (center, larger)
+            if (this.id > currentWeekIndex) {
+                fill(this.filledColourMemory);
+            } else {
+                fill(this.emptyColour);
+            }
+            textAlign(CENTER, CENTER);
+            textSize(25);
+            text(this.weeksSinceBirth.toLocaleString(), this.x, this.y);
             
             pop();
         }

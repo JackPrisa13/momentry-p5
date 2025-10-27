@@ -18,6 +18,13 @@ let musicStarted = false;
 
 let currentWeekIndex;
 
+// Birth date and age calculation
+let birthDate = null;
+let userAge = 0;
+let weeksLived = 0;
+let showStartingPage = true;
+let startingPage;
+
 // --- Grid Layout Parameters ---
 const numRows = 7;
 const circleSize = 100;
@@ -61,8 +68,85 @@ function getISOWeekNumber(date) {
   return weekNo;
 }
 
+/**
+ * calculateAgeAndWeeks()
+ * Calculates user's age and total weeks lived
+ */
+function calculateAgeAndWeeks() {
+  if (birthDate) {
+    let now = new Date();
+    let diffTime = now.getTime() - birthDate.getTime();
+    let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Calculate age in years
+    userAge = Math.floor(diffDays / 365.25);
+    
+    // Calculate total weeks lived
+    weeksLived = Math.floor(diffDays / 7);
+  }
+}
+
+/**
+ * getWeeksSinceBirth()
+ * Calculates how many weeks have passed since birth for a given week
+ * @param {number} weekIndex - The week index (0-51)
+ * @returns {number} - Weeks since birth
+ */
+function getWeeksSinceBirth(weekIndex) {
+  if (!birthDate) return weekIndex + 1;
+  
+  let now = new Date();
+  let currentYear = now.getFullYear();
+  let weekStartDate = getDateFromWeekIndex(weekIndex, currentYear);
+  
+  let diffTime = weekStartDate.getTime() - birthDate.getTime();
+  let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  let weeksSinceBirth = Math.floor(diffDays / 7);
+  
+  // Ensure we don't return negative values for future weeks
+  return Math.max(0, weeksSinceBirth);
+}
+
+/**
+ * getDateFromWeekIndex()
+ * Gets the date for a given week index in a given year
+ * @param {number} weekIndex - The week index (0-51)
+ * @param {number} year - The year
+ * @returns {Date} - The date of that week
+ */
+function getDateFromWeekIndex(weekIndex, year) {
+  // Get the first day of the year
+  let jan1 = new Date(year, 0, 1);
+  
+  // Find the first Thursday of the year (ISO week 1)
+  let firstThursday = new Date(jan1);
+  let dayOfWeek = jan1.getDay();
+  let daysToThursday = (4 - dayOfWeek + 7) % 7;
+  firstThursday.setDate(jan1.getDate() + daysToThursday);
+  
+  // Calculate the date for the given week
+  let weekDate = new Date(firstThursday);
+  weekDate.setDate(firstThursday.getDate() + (weekIndex * 7));
+  
+  return weekDate;
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
+
+  // Initialize starting page
+  startingPage = new StartingPage();
+
+  // TODO: Check if birth date exists
+  if (StartingPage.checkIfBirthDateExists()) {
+    birthDate = StartingPage.getSavedBirthDate();
+    calculateAgeAndWeeks();
+    showStartingPage = false;
+    initializeMainApp();
+  }
+
+  // Always show starting page (don't check for saved birth date) For testing purposes 
+  // showStartingPage = true;
 
   // --- Audio Setup ---
   osc = new p5.Oscillator("sine");
@@ -75,60 +159,7 @@ function setup() {
   // --- Background Music Setup ---
   // Create ambient background music using multiple oscillators
   setupBackgroundMusic();
-
-  // --- Calculate Current Week (ISO Standard) ---
-  let now = new Date();
-  let isoWeekNumber = getISOWeekNumber(now);
-  currentWeekIndex = isoWeekNumber - 1; // Convert to 0-based index
-  
-  // Debug: Log current week information
-  console.log("Current date:", now.toDateString());
-  console.log("ISO Week number:", isoWeekNumber);
-  console.log("Current week index (0-based):", currentWeekIndex);
-
-  // Load our data. Either from storage or create a new empty array.
-  yearData = loadData();
-
-  // --- Build the 52-Circle Honeycomb Grid ---
-  let weekID = 0;
-  
-  // Calculate the total grid dimensions to center it
-  let gridWidth = 8 * xSpacing;
-  let gridHeight = 7 * ySpacing;
-  let startX = (width - gridWidth) / 2 + (xSpacing / 2);
-  let startY = (height - gridHeight) / 2;
-
-  // Loop through 7 rows
-  for (let r = 0; r < numRows; r++) {
-    // Calculate the 'y' position for this row
-    let y = startY + r * ySpacing;
-
-    // Is this an even row (0, 2, 4, 6) or odd row (1, 3, 5)?
-    let isEvenRow = (r % 2 === 0);
-    let numCols = isEvenRow ? 7 : 8;
-    
-    // Get the horizontal offset
-    // Odd rows (8 circles) are flush left
-    // Even rows (7 circles) are indented by half a circle
-    let xOffset = isEvenRow ? xSpacing / 2 : 0;
-
-    // Now loop through the columns for this row
-    for (let c = 0; c < numCols; c++) {
-      let x = startX + xOffset + c * xSpacing;
-
-      // Get the specific data for this week
-      let dataForThisWeek = yearData[weekID];
-
-      // Create the new WeekCircle object
-      let newWeek = new WeekCircle(x, y, circleSize, weekID, dataForThisWeek);
-
-      // Add it to our array of objects
-      weeks.push(newWeek);
-
-      // IMPORTANT: Increment the ID for the next week
-      weekID++;
-    }
-  }
+  startBackgroundMusic();
 }
 
 /**
@@ -138,6 +169,14 @@ function setup() {
 function draw() {
   // Set background to the dark grey from your sketch
   background(backgroundColour); 
+
+  if (showStartingPage) {
+    startingPage.display();
+    return;
+  }
+
+  // Draw header with age info
+  drawHeader();
 
   let anyHoveredThisFrame = false;
 
@@ -150,27 +189,8 @@ function draw() {
 
   // First, draw all non-hovered circles
   for (let week of weeks) {
-    if (!week.isHovered) {
-      week.display(currentWeekIndex);
-    }
+    week.display(currentWeekIndex);
   }
-  
-  // Then, draw all hovered circles on top
-  for (let week of weeks) {
-    if (week.isHovered) {
-      week.display(currentWeekIndex);
-    }
-  }
-
-  // --- Sound Logic ---
-  // This ensures the sound only plays *once* when you first hover
-  // over a circle, not 60 times per second.
-  if (anyHoveredThisFrame && !isCurrentlyHovering) {
-    // if (hoverSound) {
-    //   hoverSound.play();
-    // }
-  }
-  isCurrentlyHovering = anyHoveredThisFrame;
 }
 
 /**
@@ -178,6 +198,20 @@ function draw() {
  * Runs once every time the mouse is clicked.
  */
 function mousePressed() {
+
+
+  if (showStartingPage) {
+    if (startingPage.handleClick()) {
+      birthDate = StartingPage.getSavedBirthDate();
+      calculateAgeAndWeeks();
+      showStartingPage = false;
+      // Clear any existing weeks array before initializing
+      weeks = [];
+      initializeMainApp();
+    }
+    return;
+  }
+
   // Unlock audio on first user interaction
   userStartAudio();
   
@@ -273,5 +307,61 @@ function toggleBackgroundMusic() {
       bgMusic.play();
       musicPlaying = true;
     }
+  }
+}
+
+function initializeMainApp() {
+  // Initialize the main app
+  let now = new Date();
+  let isoWeekNumber = getISOWeekNumber(now);
+  currentWeekIndex = isoWeekNumber - 1; // Convert to 0-based index
+
+  console.log("Current date:", now.toDateString());
+  console.log("ISO Week number:", isoWeekNumber);
+  console.log("Current week index (0-based):", currentWeekIndex);
+
+  yearData = loadData();
+
+  let weekID = 0;
+  
+  // Calculate the total grid dimensions to center it
+  let gridWidth = 8 * xSpacing;
+  let gridHeight = 7 * ySpacing;
+  let startX = (width - gridWidth) / 2 + (xSpacing / 2);
+  let startY = (height - gridHeight) / 2 + 80; // Offset for header
+
+  // Loop through 7 rows
+  for (let r = 0; r < numRows; r++) {
+    let y = startY + r * ySpacing;
+    let isEvenRow = (r % 2 === 0);
+    let numCols = isEvenRow ? 7 : 8;
+    let xOffset = isEvenRow ? xSpacing / 2 : 0;
+
+    for (let c = 0; c < numCols; c++) {
+      let x = startX + xOffset + c * xSpacing;
+      let dataForThisWeek = yearData[weekID];
+      let weeksSinceBirth = getWeeksSinceBirth(weekID);
+      let newWeek = new WeekCircle(x, y, circleSize, weekID, weeksSinceBirth, dataForThisWeek);
+      weeks.push(newWeek);
+      weekID++;
+    }
+  }
+}
+
+/**
+ * drawHeader()
+ * Draws the header showing age and weeks lived
+ */
+function drawHeader() {
+  if (birthDate) {
+    push();
+    noStroke();
+    textAlign(CENTER, TOP);
+    fill("#525349");
+    textSize(24);
+    textStyle(ITALIC);
+    text(`You are ${userAge} years old, which means you have lived for ${weeksLived.toLocaleString()} weeks`, 
+          width / 2, 60);
+    pop();
   }
 }
