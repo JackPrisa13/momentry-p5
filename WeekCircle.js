@@ -130,23 +130,37 @@ class WeekCircle {
         if (this.isHovered || this.id === currentWeekIndex) {
             push();
             noStroke();
-            // Set text properties - use darker color for future weeks
+            
+            // Check if current week has data
+            let hasData = (this.data && this.data.memory && this.data.memory.length > 0);
+            let isCurrent = (this.id === currentWeekIndex);
+            
+            // Set text properties based on week type and data
             if (this.id > currentWeekIndex) {
-                fill(this.filledColourMemory); // Dark color for future weeks
+                // Future weeks - always dark
+                fill(this.filledColourMemory);
+            } else if (isCurrent) {
+                // Current week - dark if empty, light if filled
+                fill(hasData ? this.emptyColour : this.filledColourMemory);
             } else {
-                fill(this.emptyColour); // Light color for past/current weeks
+                // Past weeks - always light
+                fill(this.emptyColour);
             }
+            
             textAlign(LEFT, TOP);
             textSize(12);
             textStyle(ITALIC);
             text(this.id + 1, this.x - this.baseSize / 2 + 15, this.y - this.baseSize / 2 + 20);
-
-            // Weeks since birth (center, larger)
+    
+            // Weeks since birth (center, larger) - same color logic
             if (this.id > currentWeekIndex) {
                 fill(this.filledColourMemory);
+            } else if (isCurrent) {
+                fill(hasData ? this.emptyColour : this.filledColourMemory);
             } else {
                 fill(this.emptyColour);
             }
+            
             textAlign(CENTER, CENTER);
             textSize(25);
             text(this.weeksSinceBirth.toLocaleString(), this.x, this.y);
