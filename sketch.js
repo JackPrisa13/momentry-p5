@@ -330,7 +330,7 @@ function initializeMainApp() {
   let startX = (width - gridWidth) / 2 + (xSpacing / 2);
   let startY = (height - gridHeight) / 2 + 80; // Offset for header
 
-  // Loop through 7 rows
+  // Loop through 7 and 8rows
   for (let r = 0; r < numRows; r++) {
     let y = startY + r * ySpacing;
     let isEvenRow = (r % 2 === 0);
