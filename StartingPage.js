@@ -18,6 +18,7 @@ class StartingPage {
    */
   display() {
     push();
+    noStroke(); // Ensure text has no borders
     
     // Responsive text sizes
     let titleSize = windowWidth < 600 ? 20 : windowWidth < 900 ? 26 : 32;

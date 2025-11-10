@@ -7,6 +7,170 @@ canvas {
   display: block;
 }
 
+/* Home Button */
+#home-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px; /* Positioned on the left side of the page */
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#home-btn:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+#home-btn:active {
+  transform: scale(0.95);
+}
+
+#home-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Music Toggle Button */
+#music-toggle-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#music-toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+#music-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+#music-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Year Navigation Buttons */
+#year-prev-btn,
+#year-next-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 999;
+  display: none; /* Hidden by default, shown by JavaScript */
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#year-prev-btn {
+  left: 20px;
+}
+
+#year-next-btn {
+  right: 20px;
+}
+
+#year-prev-btn:hover,
+#year-next-btn:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+#year-prev-btn:active,
+#year-next-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+#year-prev-btn:disabled,
+#year-next-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+#year-prev-btn:disabled:hover,
+#year-next-btn:disabled:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%) scale(1);
+}
+
+#year-prev-icon,
+#year-next-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Responsive buttons */
+@media screen and (max-width: 600px) {
+  #home-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    top: 10px;
+    left: 10px; /* Positioned on the left side of the page */
+  }
+
+  #music-toggle-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    top: 10px;
+    right: 10px;
+  }
+  
+  #year-prev-btn,
+  #year-next-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  #year-prev-btn {
+    left: 10px;
+  }
+  
+  #year-next-btn {
+    right: 10px;
+  }
+}
+
 /* Modal Dialog Styles */
 #entry-modal {
   display: none;

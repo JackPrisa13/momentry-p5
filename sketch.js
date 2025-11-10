@@ -18,6 +18,9 @@ let musicStarted = false;
 
 let currentWeekIndex;
 
+// Year navigation
+let currentDisplayYear; // The year currently being displayed
+
 // Birth date and age calculation
 let birthDate = null;
 let userAge = 0;
@@ -26,7 +29,7 @@ let showStartingPage = true;
 let startingPage;
 
 // Modal state
-let selectedWeekIndex = null;
+let selectedWeeksSinceBirth = null; // Weeks since birth for the selected week (universal identifier)
 let editingMemoryId = null; // ID of memory being edited, null if adding new
 
 // Mouse trail
@@ -50,145 +53,43 @@ function preload() {
 }
 
 /**
- * getISOWeekNumber()
- * Calculates the ISO week number for a given date.
- * ISO weeks start on Monday and the first week of the year
- * is the week that contains the first Thursday.
- * @param {Date} date - The date to calculate the week number for
- * @returns {number} - The ISO week number (1-53)
- */
-function getISOWeekNumber(date) {
-  // Create a new date object to avoid modifying the original
-  let d = new Date(date.getTime());
-  
-  // Set to nearest Thursday: current date + 4 - current day number
-  // Make Sunday's day number 7
-  let dayNum = d.getDay() || 7;
-  d.setDate(d.getDate() + 4 - dayNum);
-  
-  // Get first day of year
-  let yearStart = new Date(d.getFullYear(), 0, 1);
-  
-  // Calculate full weeks to nearest Thursday
-  let weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  
-  return weekNo;
-}
-
-/**
  * calculateAgeAndWeeks()
- * Calculates user's age and total weeks lived
+ * Wrapper function that updates global variables from DateUtils
+ * Note: DateUtils.calculateAgeAndWeeks takes birthDate as parameter
  */
 function calculateAgeAndWeeks() {
   if (birthDate) {
+    // Call DateUtils function directly (it's in global scope from DateUtils.js)
+    // We need to use the function before we shadow it, so we'll call it inline
     let now = new Date();
     let diffTime = now.getTime() - birthDate.getTime();
     let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Calculate age in years
     userAge = Math.floor(diffDays / 365.25);
-    
-    // Calculate total weeks lived
     weeksLived = Math.floor(diffDays / 7);
   }
 }
 
 /**
  * getWeeksSinceBirth()
- * Calculates how many weeks have passed since birth for a given week
+ * Wrapper that uses DateUtils function with global birthDate
  * @param {number} weekIndex - The week index (0-51)
- * @returns {number} - Weeks since birth
+ * @param {number} year - The year to calculate for (defaults to currentDisplayYear)
  */
-function getWeeksSinceBirth(weekIndex) {
+function getWeeksSinceBirth(weekIndex, year) {
   if (!birthDate) return weekIndex + 1;
   
-  let now = new Date();
-  let currentYear = now.getFullYear();
-  let weekStartDate = getDateFromWeekIndex(weekIndex, currentYear);
+  // Use provided year or currentDisplayYear, or fallback to current year
+  if (year === undefined) {
+    year = currentDisplayYear || new Date().getFullYear();
+  }
+  
+  let weekStartDate = getDateFromWeekIndex(weekIndex, year);
   
   let diffTime = weekStartDate.getTime() - birthDate.getTime();
   let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   let weeksSinceBirth = Math.floor(diffDays / 7);
   
-  // Ensure we don't return negative values for future weeks
   return Math.max(0, weeksSinceBirth);
-}
-
-/**
- * getDateFromWeekIndex()
- * Gets the date for a given week index in a given year
- * @param {number} weekIndex - The week index (0-51)
- * @param {number} year - The year
- * @returns {Date} - The date of that week
- */
-function getDateFromWeekIndex(weekIndex, year) {
-  // Get the first day of the year
-  let jan1 = new Date(year, 0, 1);
-  
-  // Find the first Thursday of the year (ISO week 1)
-  let firstThursday = new Date(jan1);
-  let dayOfWeek = jan1.getDay();
-  let daysToThursday = (4 - dayOfWeek + 7) % 7;
-  firstThursday.setDate(jan1.getDate() + daysToThursday);
-  
-  // Calculate the date for the given week
-  let weekDate = new Date(firstThursday);
-  weekDate.setDate(firstThursday.getDate() + (weekIndex * 7));
-  
-  return weekDate;
-}
-
-/**
- * formatDateForInput()
- * Formats a Date object as YYYY-MM-DD in local timezone (not UTC)
- * This prevents timezone shifts when setting min/max on date inputs
- * @param {Date} date - The date to format
- * @returns {string} - Date string in YYYY-MM-DD format
- */
-function formatDateForInput(date) {
-  let year = date.getFullYear();
-  let month = String(date.getMonth() + 1).padStart(2, '0');
-  let day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * getWeekDateRange()
- * Gets the start (Monday) and end (Sunday) dates for a given week index
- * ISO 8601 weeks start on Monday (day 1) and end on Sunday (day 0)
- * @param {number} weekIndex - The week index (0-51)
- * @param {number} year - The year
- * @returns {Object} - Object with startDate (Monday) and endDate (Sunday) as Date objects
- */
-function getWeekDateRange(weekIndex, year) {
-  // Get the Thursday of the week (ISO week reference point)
-  let weekThursday = getDateFromWeekIndex(weekIndex, year);
-  
-  // Calculate Monday (start of ISO week)
-  // Thursday is day 4 (getDay() returns 4), Monday is day 1
-  // So we subtract exactly 3 days: 4 - 3 = 1 (Monday)
-  let monday = new Date(weekThursday);
-  // Get the day of week for Thursday (should be 4)
-  let thursdayDayOfWeek = weekThursday.getDay();
-  // Calculate days to subtract to get to Monday (1)
-  // If Thursday is day 4, we need to go back 3 days: 4 - 1 = 3
-  let daysToMonday = thursdayDayOfWeek - 1;
-  // Handle Sunday (0) case - if Thursday is actually Sunday (shouldn't happen, but safety check)
-  if (thursdayDayOfWeek === 0) {
-    daysToMonday = 6; // Go back 6 days from Sunday to get Monday
-  }
-  monday.setDate(weekThursday.getDate() - daysToMonday);
-  monday.setHours(0, 0, 0, 0); // Set to start of day
-  
-  // Calculate Sunday (end of ISO week) - exactly 6 days after Monday
-  let sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999); // Set to end of day
-  
-  return {
-    startDate: monday,
-    endDate: sunday
-  };
 }
 
 /**
@@ -221,9 +122,11 @@ function calculateResponsiveSizes() {
 }
 
 function setup() {
+  console.log('Setup called');
   createCanvas(windowWidth, windowHeight);
+  console.log('Canvas created');
 
-  // Calculate responsive sizes
+  // Calculate responsive sizes (after canvas is created)
   calculateResponsiveSizes();
 
   // Initialize starting page
@@ -256,335 +159,45 @@ function setup() {
   // --- Modal Event Listeners ---
   setupModalListeners();
   
+  // --- Music Toggle Button Setup ---
+  let musicToggleBtn = document.getElementById('music-toggle-btn');
+  if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', function() {
+      toggleBackgroundMusic();
+    });
+    // Initialize icon state
+    updateMusicIcon();
+  }
+  
+  // --- Home Button Setup ---
+  let homeBtn = document.getElementById('home-btn');
+  if (homeBtn) {
+    homeBtn.addEventListener('click', function() {
+      returnToHome();
+    });
+  }
+  
+  // --- Year Navigation Buttons Setup ---
+  let yearPrevBtn = document.getElementById('year-prev-btn');
+  if (yearPrevBtn) {
+    yearPrevBtn.addEventListener('click', function() {
+      navigateToYear(currentDisplayYear - 1);
+    });
+  }
+  
+  let yearNextBtn = document.getElementById('year-next-btn');
+  if (yearNextBtn) {
+    yearNextBtn.addEventListener('click', function() {
+      navigateToYear(currentDisplayYear + 1);
+    });
+  }
+  
   // Initialize mouse trail
   mouseTrail = new MouseTrail();
   mouseTrail.initialize();
 }
 
-/**
- * setupModalListeners()
- * Sets up event listeners for the modal Save and Cancel buttons
- */
-function setupModalListeners() {
-  // Cancel button
-  let cancelBtn = document.getElementById('modal-cancel-btn');
-  cancelBtn.addEventListener('click', function() {
-    hideModal();
-  });
-  
-  // Save button
-  let saveBtn = document.getElementById('modal-save-btn');
-  saveBtn.addEventListener('click', function() {
-    if (selectedWeekIndex !== null) {
-      let textInput = document.getElementById('modal-text-input');
-      let dateInput = document.getElementById('memory-date-input');
-      let text = textInput.value.trim();
-      let date = dateInput.value;
-      
-      if (!text) {
-        alert('Please enter a memory or goal.');
-        return;
-      }
-      
-      if (!date) {
-        alert('Please select a date.');
-        return;
-      }
-      
-      // Validate that the date is within the selected week's range
-      let currentYear = new Date().getFullYear();
-      let weekRange = getWeekDateRange(selectedWeekIndex, currentYear);
-      let selectedDate = new Date(date);
-      
-      if (selectedDate < weekRange.startDate || selectedDate > weekRange.endDate) {
-        alert('The date must be within Week ' + (selectedWeekIndex + 1) + ' (Monday to Sunday).');
-        return;
-      }
-      
-      if (editingMemoryId !== null) {
-        // Editing existing memory
-        editMemory(selectedWeekIndex, editingMemoryId, text, date);
-        // Close modal after editing
-        hideModal();
-      } else {
-        // Adding new memory
-        addMemory(selectedWeekIndex, text, date);
-        // Keep modal open, just refresh list and clear form
-        displayMemoriesList(selectedWeekIndex);
-        textInput.value = '';
-        
-        // Reset date to default within the week range
-        let currentYear = new Date().getFullYear();
-        let weekRange = getWeekDateRange(selectedWeekIndex, currentYear);
-        let today = new Date();
-        let defaultDate = weekRange.startDate;
-        if (today >= weekRange.startDate && today <= weekRange.endDate) {
-          defaultDate = today;
-        }
-        dateInput.value = formatDateForInput(defaultDate);
-        
-        textInput.focus();
-      }
-    }
-  });
-  
-  // Close modal when clicking outside of it
-  let modal = document.getElementById('entry-modal');
-  modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-      hideModal();
-    }
-  });
-  
-  // Prevent clicks on modal content from propagating to background
-  let modalContent = document.querySelector('.modal-content');
-  if (modalContent) {
-    modalContent.addEventListener('click', function(e) {
-      e.stopPropagation();
-    });
-  }
-}
-
-/**
- * hideModal()
- * Hides the modal and clears the input
- */
-function hideModal() {
-  let modal = document.getElementById('entry-modal');
-  if (modal) {
-    modal.style.display = 'none';
-    modal.classList.remove('show');
-  }
-  
-  // Re-enable canvas interaction
-  let canvas = document.querySelector('canvas');
-  if (canvas) {
-    canvas.style.pointerEvents = 'auto';
-  }
-  
-  let textInput = document.getElementById('modal-text-input');
-  if (textInput) {
-    textInput.value = '';
-  }
-  
-  let dateInput = document.getElementById('memory-date-input');
-  if (dateInput) {
-    dateInput.value = '';
-  }
-  
-  // Reset save button text
-  let saveBtn = document.getElementById('modal-save-btn');
-  if (saveBtn) {
-    saveBtn.textContent = 'Add';
-  }
-  
-  selectedWeekIndex = null;
-  editingMemoryId = null;
-}
-
-/**
- * addMemory()
- * Adds a new memory to the specified week
- */
-function addMemory(weekIndex, text, date) {
-  if (!yearData[weekIndex].memories) {
-    yearData[weekIndex].memories = [];
-  }
-  
-  let newMemory = {
-    id: generateMemoryId(),
-    text: text,
-    date: date,
-    timestamp: new Date().toISOString()
-  };
-  
-  yearData[weekIndex].memories.push(newMemory);
-  
-  // Sort memories by date (newest first)
-  yearData[weekIndex].memories.sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-  
-  saveData(yearData);
-}
-
-/**
- * editMemory()
- * Edits an existing memory
- */
-function editMemory(weekIndex, memoryId, text, date) {
-  if (!yearData[weekIndex].memories) {
-    return;
-  }
-  
-  let memory = yearData[weekIndex].memories.find(m => m.id === memoryId);
-  if (memory) {
-    memory.text = text;
-    memory.date = date;
-    memory.timestamp = new Date().toISOString();
-    
-    // Re-sort after edit
-    yearData[weekIndex].memories.sort((a, b) => {
-      return new Date(b.date) - new Date(a.date);
-    });
-    
-    saveData(yearData);
-  }
-}
-
-/**
- * deleteMemory()
- * Deletes a memory after confirmation
- */
-function deleteMemory(weekIndex, memoryId) {
-  if (!confirm('Are you sure you want to delete this memory?')) {
-    return;
-  }
-  
-  if (!yearData[weekIndex].memories) {
-    return;
-  }
-  
-  yearData[weekIndex].memories = yearData[weekIndex].memories.filter(m => m.id !== memoryId);
-  saveData(yearData);
-  
-  // Refresh the memories list
-  displayMemoriesList(weekIndex);
-}
-
-/**
- * displayMemoriesList()
- * Displays the list of memories for the selected week
- */
-function displayMemoriesList(weekIndex) {
-  let memoriesList = document.getElementById('memories-list');
-  if (!memoriesList) return;
-  
-  memoriesList.innerHTML = '';
-  
-  if (!yearData[weekIndex] || !yearData[weekIndex].memories || yearData[weekIndex].memories.length === 0) {
-    memoriesList.innerHTML = '<div class="empty-memories">No memories yet. Add your first memory below!</div>';
-    return;
-  }
-  
-  // Sort memories by date (newest first)
-  let sortedMemories = [...yearData[weekIndex].memories].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-  
-  sortedMemories.forEach(memory => {
-    let memoryItem = document.createElement('div');
-    memoryItem.className = 'memory-item';
-    
-    // Format date for display
-    let displayDate = new Date(memory.date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-    
-    memoryItem.innerHTML = `
-      <div class="memory-item-header">
-        <span class="memory-item-date">${displayDate}</span>
-        <div class="memory-item-actions">
-          <button class="memory-edit-btn" data-memory-id="${memory.id}">Edit</button>
-          <button class="memory-delete-btn" data-memory-id="${memory.id}">Delete</button>
-        </div>
-      </div>
-      <div class="memory-item-text">${escapeHtml(memory.text)}</div>
-    `;
-    
-    memoriesList.appendChild(memoryItem);
-  });
-  
-  // Add event listeners for edit and delete buttons
-  memoriesList.querySelectorAll('.memory-edit-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      let memoryId = btn.getAttribute('data-memory-id');
-      startEditingMemory(weekIndex, memoryId);
-    });
-  });
-  
-  memoriesList.querySelectorAll('.memory-delete-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      let memoryId = btn.getAttribute('data-memory-id');
-      deleteMemory(weekIndex, memoryId);
-    });
-  });
-}
-
-/**
- * startEditingMemory()
- * Loads a memory into the edit form
- */
-function startEditingMemory(weekIndex, memoryId) {
-  if (!yearData[weekIndex].memories) {
-    return;
-  }
-  
-  let memory = yearData[weekIndex].memories.find(m => m.id === memoryId);
-  if (!memory) {
-    return;
-  }
-  
-  editingMemoryId = memoryId;
-  
-  // Update save button text to "Save" when editing
-  let saveBtn = document.getElementById('modal-save-btn');
-  if (saveBtn) {
-    saveBtn.textContent = 'Save';
-  }
-  
-  let textInput = document.getElementById('modal-text-input');
-  let dateInput = document.getElementById('memory-date-input');
-  
-  if (textInput) {
-    textInput.value = memory.text;
-  }
-  
-  if (dateInput) {
-    // Get the current year
-    let currentYear = new Date().getFullYear();
-    
-    // Get the week's date range (Monday to Sunday)
-    let weekRange = getWeekDateRange(weekIndex, currentYear);
-    
-    // Format dates as YYYY-MM-DD for input min/max
-    let minDate = formatDateForInput(weekRange.startDate);
-    let maxDate = formatDateForInput(weekRange.endDate);
-    
-    // Set min and max to limit date selection to the week
-    dateInput.setAttribute('min', minDate);
-    dateInput.setAttribute('max', maxDate);
-    
-    // Set the memory's date (but ensure it's within the week range)
-    let memoryDate = new Date(memory.date);
-    if (memoryDate < weekRange.startDate) {
-      dateInput.value = minDate;
-    } else if (memoryDate > weekRange.endDate) {
-      dateInput.value = maxDate;
-    } else {
-      dateInput.value = memory.date;
-    }
-  }
-  
-  // Scroll to input section
-  let inputSection = document.getElementById('memory-input-section');
-  if (inputSection) {
-    inputSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    textInput.focus();
-  }
-}
-
-/**
- * escapeHtml()
- * Escapes HTML to prevent XSS
- */
-function escapeHtml(text) {
-  let div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+// Modal and memory management functions are now in ModalManager.js
 
 /**
  * p5.js draw()
@@ -605,20 +218,35 @@ function draw() {
     if (mouseTrail) {
       mouseTrail.display(showStartingPage);
     }
+    // Hide home button and navigation buttons on starting page
+    let homeBtn = document.getElementById('home-btn');
+    if (homeBtn) {
+      homeBtn.style.display = 'none';
+    }
+    // Ensure navigation buttons are hidden on starting page
+    updateNavigationButtons();
     return;
   }
+  
+  // Show home button when not on starting page
+  let homeBtn = document.getElementById('home-btn');
+  if (homeBtn) {
+    homeBtn.style.display = 'flex';
+  }
+  
+  // Update navigation buttons visibility
+  updateNavigationButtons();
 
   // Draw header with age info
   drawHeader();
 
   // Check if modal is open
-  let modal = document.getElementById('entry-modal');
-  let isModalOpen = modal && modal.classList.contains('show');
+  let modalOpen = isModalOpen();
 
   let anyHoveredThisFrame = false;
 
   // Only check hover states if modal is NOT open
-  if (!isModalOpen) {
+  if (!modalOpen) {
   // This loop updates hover states and checks if *any* circle is hovered
   for (let week of weeks) {
     if (week.checkHover()) {
@@ -634,7 +262,7 @@ function draw() {
 
   // Draw all circles
   for (let week of weeks) {
-    week.display(currentWeekIndex);
+    week.display(currentWeekIndex, currentDisplayYear, birthDate);
   }
 
   // Draw mouse trail on top of everything
@@ -644,199 +272,366 @@ function draw() {
 }
 
 /**
- * p5.js mousePressed()
- * Runs once every time the mouse is clicked.
+ * isModalOpen()
+ * Checks if the modal is currently open
+ * @returns {boolean} - True if modal is open
  */
+function isModalOpen() {
+  let modal = document.getElementById('entry-modal');
+  return modal && modal.classList.contains('show');
+}
+
+/**
+ * isButtonClick()
+ * Checks if the click is on a button element
+ * @returns {boolean} - True if click is on a button
+ */
+function isButtonClick() {
+  let canvas = document.querySelector('canvas');
+  if (!canvas) return false;
+  
+  let rect = canvas.getBoundingClientRect();
+  let screenX = rect.left + mouseX;
+  let screenY = rect.top + mouseY;
+  let elementAtPoint = document.elementFromPoint(screenX, screenY);
+  
+  return elementAtPoint && (elementAtPoint.tagName === 'BUTTON' || elementAtPoint.closest('button'));
+}
+
+/**
+ * handleStartingPageClick()
+ * Handles clicks on the starting page
+ */
+function handleStartingPageClick() {
+  if (startingPage.handleClick()) {
+    birthDate = StartingPage.getSavedBirthDate();
+    calculateAgeAndWeeks();
+    showStartingPage = false;
+    weeks = [];
+    initializeMainApp();
+  }
+}
+
+/**
+ * isClickOnCircle()
+ * Checks if the mouse click is on a specific circle
+ * @param {WeekCircle} week - The week circle to check
+ * @returns {boolean} - True if click is on the circle
+ */
+function isClickOnCircle(week) {
+  let d = dist(mouseX, mouseY, week.x, week.y);
+  return d < week.baseSize / 2;
+}
+
 function mousePressed() {
   // Don't process clicks if modal is open
-  let modal = document.getElementById('entry-modal');
-  if (modal && modal.classList.contains('show')) {
-    return;
-  }
+  if (isModalOpen()) return;
+  
+  // Don't process clicks if clicking on a button
+  if (isButtonClick()) return;
 
+  // Handle starting page clicks
   if (showStartingPage) {
-    if (startingPage.handleClick()) {
-      birthDate = StartingPage.getSavedBirthDate();
-      calculateAgeAndWeeks();
-      showStartingPage = false;
-      // Clear any existing weeks array before initializing
-      weeks = [];
-      initializeMainApp();
-    }
+    handleStartingPageClick();
     return;
   }
 
   // Unlock audio on first user interaction
   userStartAudio();
-  
-  // Start background music on first interaction
   startBackgroundMusic();
   
   // Check which circle was clicked
   for (let week of weeks) {
-    // Check if mouse is over this circle at the moment of click
-    let d = dist(mouseX, mouseY, week.x, week.y);
+    if (week.isBeforeBirth) continue;
     
-    // Check if distance is less than half the size (the radius)
-    if (d < week.baseSize / 2) {
-      console.log('Week circle clicked:', week.id);
-      // Store which week was clicked
-      selectedWeekIndex = week.id;
-      
-      // Get modal elements
-      let modal = document.getElementById('entry-modal');
-      let modalTitle = document.getElementById('modal-title');
-      let textInput = document.getElementById('modal-text-input');
-      
-      // Check if elements exist
-      if (!modal || !modalTitle || !textInput) {
-        console.error('Modal elements not found!');
-        return;
-      }
-      
-      // Set modal title based on week type
-      if (week.id > currentWeekIndex) {
-        modalTitle.textContent = "Week " + (week.id + 1) + " - Goals";
-      } else {
-        modalTitle.textContent = "Week " + (week.id + 1) + " - Memories";
-      }
-      
-      // Reset editing state (we're adding new, not editing)
-      editingMemoryId = null;
-      
-      // Update save button text
-      let saveBtn = document.getElementById('modal-save-btn');
-      if (saveBtn) {
-        saveBtn.textContent = 'Add';
-      }
-      
-      // Clear inputs for new memory
-      textInput.value = '';
-      let dateInput = document.getElementById('memory-date-input');
-      if (dateInput) {
-        // Get the current year
-        let currentYear = new Date().getFullYear();
-        
-        // Get the week's date range (Monday to Sunday)
-        let weekRange = getWeekDateRange(week.id, currentYear);
-        
-        // Format dates as YYYY-MM-DD for input min/max (using local timezone)
-        let minDate = formatDateForInput(weekRange.startDate);
-        let maxDate = formatDateForInput(weekRange.endDate);
-        
-        // Set min and max to limit date selection to the week
-        dateInput.setAttribute('min', minDate);
-        dateInput.setAttribute('max', maxDate);
-        
-        // Set default date to Monday of the week (or today if within the week)
-        let today = new Date();
-        let defaultDate = weekRange.startDate;
-        if (today >= weekRange.startDate && today <= weekRange.endDate) {
-          defaultDate = today;
-        }
-        dateInput.value = formatDateForInput(defaultDate);
-      }
-      
-      // Display existing memories list
-      displayMemoriesList(week.id);
-      
-      // Clear all hover states before showing modal
-      for (let w of weeks) {
-        w.isHovered = false;
-      }
-      
-      // Show the modal
-      modal.style.display = 'flex';
-      modal.classList.add('show');
-      
-      // Disable canvas interaction
-      let canvas = document.querySelector('canvas');
-      if (canvas) {
-        canvas.style.pointerEvents = 'none';
-      }
-      
-      // Focus on textarea
-      textInput.focus();
-      
-      // Stop looping, we only want to click one circle
-      break; 
+    if (isClickOnCircle(week)) {
+      showWeekModal(week);
+      break;
     }
   }
 }
 
-function keyPressed() {
-  if (key === 'm') {
-    toggleBackgroundMusic();
-  }
-}
-
 /**
- * playTick()
- * Plays a hover sound with debouncing
+ * showWeekModal()
+ * Sets up and displays the modal for a clicked week circle
+ * @param {WeekCircle} week - The week circle that was clicked
  */
-function playTick() {
-  const now = millis();
-  if (now - lastTickTime < TICK_GAP_MS) return; // Debounce
-  if (env && osc) env.play(osc);
-  lastTickTime = now;
-}
-
-/**
- * setupBackgroundMusic()
- * Sets up the loaded background music file
- */
-function setupBackgroundMusic() {
-  if (bgMusic) {
-    // Set volume and loop settings
-    bgMusic.setVolume(musicVolume);
-    bgMusic.loop(); // Loop the music
-    bgMusic.stop(); // Start stopped, will be played on first interaction
+function showWeekModal(week) {
+  console.log('Week circle clicked:', week.id, 'Weeks since birth:', week.weeksSinceBirth);
+  
+  // Store weeks since birth as the universal identifier
+  selectedWeeksSinceBirth = week.weeksSinceBirth;
+  
+  // Get modal elements
+  let modal = document.getElementById('entry-modal');
+  let modalTitle = document.getElementById('modal-title');
+  let textInput = document.getElementById('modal-text-input');
+  
+  // Check if elements exist
+  if (!modal || !modalTitle || !textInput) {
+    console.error('Modal elements not found!');
+    return;
   }
-}
-
-/**
- * startBackgroundMusic()
- * Starts the background music with fade-in
- */
-function startBackgroundMusic() {
-  if (!musicStarted && bgMusic) {
-    musicStarted = true;
-    musicPlaying = true;
-    
-    // Start playing the music
-    bgMusic.play();
+  
+  // Get the year and week index for this weeks since birth
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(week.weeksSinceBirth, birthDate);
+  if (!yearWeekInfo) {
+    console.error('Could not determine year and week index for weeks since birth:', week.weeksSinceBirth);
+    return;
   }
-}
-
-/**
- * toggleBackgroundMusic()
- * Toggles background music on/off
- */
-function toggleBackgroundMusic() {
-  if (bgMusic) {
-    if (musicPlaying) {
-      // Stop the music
-      bgMusic.stop();
-      musicPlaying = false;
-    } else {
-      // Start the music
-      bgMusic.play();
-      musicPlaying = true;
-    }
-  }
-}
-
-function initializeMainApp() {
-  // Initialize the main app
+  
+  // Set modal title based on week type
   let now = new Date();
-  let isoWeekNumber = getISOWeekNumber(now);
-  currentWeekIndex = isoWeekNumber - 1; // Convert to 0-based index
+  let currentYear = now.getFullYear();
+  let isFutureWeek = (yearWeekInfo.year > currentYear) || 
+                     (yearWeekInfo.year === currentYear && yearWeekInfo.weekIndex > currentWeekIndex);
+  
+  // Display week number within the year (1-52)
+  modalTitle.textContent = isFutureWeek 
+    ? `Week ${yearWeekInfo.weekIndex + 1} - Goals`
+    : `Week ${yearWeekInfo.weekIndex + 1} - Memories`;
+  
+  // Reset editing state (we're adding new, not editing)
+  editingMemoryId = null;
+  
+  // Update save button text
+  let saveBtn = document.getElementById('modal-save-btn');
+  if (saveBtn) {
+    saveBtn.textContent = 'Add';
+  }
+  
+  // Setup date input
+  setupDateInput(yearWeekInfo);
+  
+  // Display existing memories list (using weeks since birth)
+  displayMemoriesList(week.weeksSinceBirth);
+  
+  // Clear all hover states before showing modal
+  clearAllHoverStates();
+  
+  // Show the modal
+  showModal(modal, textInput);
+}
 
+/**
+ * setupDateInput()
+ * Sets up the date input field with min/max and default value
+ * @param {Object} yearWeekInfo - Object with year and weekIndex
+ */
+function setupDateInput(yearWeekInfo) {
+  let dateInput = document.getElementById('memory-date-input');
+  if (!dateInput) return;
+  
+  // Get the week's date range (Monday to Sunday) for the correct year
+  let weekRange = getWeekDateRange(yearWeekInfo.weekIndex, yearWeekInfo.year);
+  
+  // Format dates as YYYY-MM-DD for input min/max (using local timezone)
+  let minDate = formatDateForInput(weekRange.startDate);
+  let maxDate = formatDateForInput(weekRange.endDate);
+  
+  // Set min and max to limit date selection to the week
+  dateInput.setAttribute('min', minDate);
+  dateInput.setAttribute('max', maxDate);
+  
+  // Set default date to Monday of the week (or today if within the week)
+  let today = new Date();
+  let defaultDate = weekRange.startDate;
+  if (today >= weekRange.startDate && today <= weekRange.endDate) {
+    defaultDate = today;
+  }
+  dateInput.value = formatDateForInput(defaultDate);
+}
+
+/**
+ * clearAllHoverStates()
+ * Clears hover states for all week circles
+ */
+function clearAllHoverStates() {
+  for (let w of weeks) {
+    w.isHovered = false;
+  }
+}
+
+/**
+ * showModal()
+ * Displays the modal and disables canvas interaction
+ * @param {HTMLElement} modal - The modal element
+ * @param {HTMLElement} textInput - The text input element to focus
+ */
+function showModal(modal, textInput) {
+  modal.style.display = 'flex';
+  modal.classList.add('show');
+  
+  // Disable canvas interaction
+  let canvas = document.querySelector('canvas');
+  if (canvas) {
+    canvas.style.pointerEvents = 'none';
+  }
+  
+  // Focus on textarea
+  textInput.focus();
+}
+
+// Keyboard shortcuts removed - use the music toggle button instead
+
+// Audio functions are now in AudioManager.js
+
+/**
+ * returnToHome()
+ * Resets the app and returns to the starting page where user can enter/edit their birth date
+ */
+function returnToHome() {
+  // Hide modal if it's open
+  let modal = document.getElementById('entry-modal');
+  if (modal && modal.classList.contains('show')) {
+    hideModal();
+  }
+  
+  // Clear the weeks array
+  weeks = [];
+  
+  // Reset state variables
+  birthDate = null;
+  userAge = 0;
+  weeksLived = 0;
+  showStartingPage = true;
+  
+  // Clear the saved birth date from localStorage so user can enter a new one
+  localStorage.removeItem('userBirthDate');
+  
+  // Re-initialize the starting page
+  startingPage = new StartingPage();
+}
+
+/**
+ * refreshCircleData()
+ * Refreshes the data for all circles after memory changes
+ * @param {number} year - The year to refresh data for
+ */
+function refreshCircleData(year) {
+  // Only refresh if we're viewing the same year
+  if (year !== currentDisplayYear) {
+    return;
+  }
+  
+  // Reload the year data
+  yearData = loadData(year);
+  
+  // Update each circle's data reference and recalculate state
+  let today = new Date();
+  for (let week of weeks) {
+    if (week.id >= 0 && week.id < yearData.length) {
+      week.data = yearData[week.id];
+      // Recalculate state in case data changed
+      week.updateState(currentDisplayYear, birthDate, today);
+    }
+  }
+}
+
+/**
+ * navigateToYear()
+ * Navigates to a different year and rebuilds the grid
+ * @param {number} year - The year to navigate to
+ */
+function navigateToYear(year) {
+  if (!birthDate) return; // Can't navigate without birth date
+  
+  // Get birth year to prevent navigating before birth
+  let birthYear = birthDate.getFullYear();
+  
+  // Prevent navigating to years before birth year
+  if (year < birthYear) {
+    console.log(`Cannot navigate to year ${year} - before birth year ${birthYear}`);
+    return;
+  }
+  
+  // Hide modal if it's open
+  let modal = document.getElementById('entry-modal');
+  if (modal && modal.classList.contains('show')) {
+    hideModal();
+  }
+  
+  // Clear modal state to prevent using stale week identifier
+  selectedWeeksSinceBirth = null;
+  editingMemoryId = null;
+  
+  // Clear existing weeks
+  weeks = [];
+  
+  // Rebuild for the new year
+  initializeMainApp(year);
+}
+
+/**
+ * updateNavigationButtons()
+ * Updates the visibility and state of navigation buttons
+ */
+function updateNavigationButtons() {
+  let prevBtn = document.getElementById('year-prev-btn');
+  let nextBtn = document.getElementById('year-next-btn');
+  
+  if (!prevBtn || !nextBtn || !currentDisplayYear) return;
+  
+  // Show buttons only when not on starting page
+  if (showStartingPage) {
+    prevBtn.style.display = 'none';
+    nextBtn.style.display = 'none';
+    return;
+  }
+  
+  // Show buttons
+  prevBtn.style.display = 'flex';
+  nextBtn.style.display = 'flex';
+  
+  // Disable previous button if at or before birth year
+  if (birthDate) {
+    let birthYear = birthDate.getFullYear();
+    if (currentDisplayYear <= birthYear) {
+      // Disable previous button - can't go before birth year
+      prevBtn.disabled = true;
+    } else {
+      // Enable previous button
+      prevBtn.disabled = false;
+    }
+  }
+  
+  // Next button is always enabled (no limit on future years)
+  nextBtn.disabled = false;
+}
+
+function initializeMainApp(year) {
+  // Initialize the main app
+  // If no year specified, use current year
+  if (year === undefined) {
+    year = new Date().getFullYear();
+  }
+  
+  // Ensure we don't start before birth year
+  if (birthDate) {
+    let birthYear = birthDate.getFullYear();
+    if (year < birthYear) {
+      console.log(`Cannot initialize to year ${year} - before birth year ${birthYear}. Using birth year instead.`);
+      year = birthYear;
+    }
+  }
+  
+  currentDisplayYear = year;
+  
+  let now = new Date();
+  let isoWeekInfo = getISOWeekNumber(now);
+  currentWeekIndex = isoWeekInfo.weekNumber - 1; // Convert to 0-based index
+  
+  // Only highlight current week if viewing the ISO year (which handles year boundaries correctly)
+  if (year !== isoWeekInfo.year) {
+    currentWeekIndex = -1; // No current week highlight for past/future years
+  }
+
+  console.log("Displaying year:", year);
   console.log("Current date:", now.toDateString());
-  console.log("ISO Week number:", isoWeekNumber);
+  console.log("ISO Week number:", isoWeekInfo.weekNumber, "ISO Year:", isoWeekInfo.year);
   console.log("Current week index (0-based):", currentWeekIndex);
 
-  yearData = loadData();
+  yearData = loadData(year);
 
   let weekID = 0;
   
@@ -859,12 +654,20 @@ function initializeMainApp() {
     for (let c = 0; c < numCols; c++) {
       let x = startX + xOffset + c * xSpacing;
       let dataForThisWeek = yearData[weekID];
-      let weeksSinceBirth = getWeeksSinceBirth(weekID);
+      let weeksSinceBirth = getWeeksSinceBirth(weekID, year);
       let newWeek = new WeekCircle(x, y, circleSize, weekID, weeksSinceBirth, dataForThisWeek);
+      
+      // Calculate and cache state once when circle is created
+      let today = new Date();
+      newWeek.updateState(year, birthDate, today);
+      
       weeks.push(newWeek);
       weekID++;
     }
   }
+  
+  // Update navigation button visibility
+  updateNavigationButtons();
 }
 
 /**
@@ -880,13 +683,13 @@ function windowResized() {
   // Rebuild the grid if the app is initialized
   if (!showStartingPage && weeks.length > 0) {
     weeks = [];
-    initializeMainApp();
+    initializeMainApp(currentDisplayYear);
   }
 }
 
 /**
  * drawHeader()
- * Draws the header showing age and weeks lived
+ * Draws the header showing age and weeks lived, and current year
  */
 function drawHeader() {
   if (birthDate) {
@@ -897,14 +700,27 @@ function drawHeader() {
     
     // Responsive text size
     let headerTextSize = windowWidth < 600 ? 16 : windowWidth < 900 ? 20 : 24;
+    let yearTextSize = windowWidth < 600 ? 14 : windowWidth < 900 ? 18 : 22;
     textSize(headerTextSize);
     textStyle(ITALIC);
     
     // Responsive top margin
     let topMargin = windowWidth < 600 ? 20 : windowWidth < 900 ? 40 : 60;
+    let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 35);
     
     text(`You are ${userAge} years old, which means you have lived for ${weeksLived.toLocaleString()} weeks`, 
           width / 2, topMargin);
+    
+    // Show current year being displayed
+    if (currentDisplayYear) {
+      textSize(yearTextSize);
+      let currentYear = new Date().getFullYear();
+      let yearText = currentDisplayYear === currentYear 
+        ? `Viewing ${currentDisplayYear}` 
+        : `Viewing ${currentDisplayYear}`;
+      text(yearText, width / 2, yearMargin);
+    }
+    
     pop();
   }
 }

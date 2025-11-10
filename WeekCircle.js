@@ -25,6 +25,41 @@ class WeekCircle {
         this.targetSize = this.baseSize;
         this.currentSize = this.baseSize;
         this.lerpSpeed = 0.1; // Animation speed (0.1 is smooth)
+        
+        // --- Cached State (calculated once, not every frame) ---
+        this.isBeforeBirth = false;
+        this.isPast = false;
+        this.weekRange = null; // Cached week date range
+    }
+    
+    /**
+     * updateState()
+     * Calculates and caches state that doesn't change during a year view
+     * This should be called once when the circle is created or when the year changes
+     * @param {number} currentDisplayYear - The year currently being displayed
+     * @param {Date} birthDate - The user's birth date
+     * @param {Date} today - The current date (for isPast calculation)
+     */
+    updateState(currentDisplayYear, birthDate, today) {
+        // Calculate week range ONCE
+        this.weekRange = getWeekDateRange(this.id, currentDisplayYear);
+        let weekMonday = this.weekRange.startDate;
+        let weekMondayStart = new Date(weekMonday);
+        weekMondayStart.setHours(0, 0, 0, 0);
+        
+        // Calculate isBeforeBirth ONCE
+        if (birthDate) {
+            let birthDateStart = new Date(birthDate);
+            birthDateStart.setHours(0, 0, 0, 0);
+            this.isBeforeBirth = weekMondayStart < birthDateStart;
+        } else {
+            this.isBeforeBirth = false;
+        }
+        
+        // Calculate isPast ONCE
+        let todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        this.isPast = weekMondayStart < todayStart;
     }
 
     /**
@@ -34,6 +69,12 @@ class WeekCircle {
      * @returns {boolean} - True if the mouse is over, false otherwise.
      */
     checkHover() {
+        // Don't allow hover for weeks before birth
+        if (this.isBeforeBirth) {
+            this.isHovered = false;
+            return false;
+        }
+        
         let d = dist(mouseX, mouseY, this.x, this.y);
         let wasHovered = this.isHovered;
         
@@ -56,6 +97,13 @@ class WeekCircle {
      * It's called internally by display() every frame.
      */
     update() {
+      // Don't allow size changes for weeks before birth
+        if (this.isBeforeBirth) {
+            this.targetSize = this.baseSize;
+            this.currentSize = this.baseSize;
+            return;
+        }
+        
       // Set the target size based on hover state
         if (this.isHovered) {
             this.targetSize = this.baseSize * 1.25; // 30% zoom
@@ -71,8 +119,11 @@ class WeekCircle {
      * display()
      * This draws the circle to the canvas,
      * reading from its data to determine its color.
+     * @param {number} currentWeekIndex - The current week index (for current year)
+     * @param {number} currentDisplayYear - The year currently being displayed
+     * @param {Date} birthDate - The user's birth date (to check if week is before birth)
      */
-    display(currentWeekIndex) {
+    display(currentWeekIndex, currentDisplayYear, birthDate) {
       // First, update the size animation
         this.update();
         strokeWeight(2);
@@ -82,12 +133,19 @@ class WeekCircle {
             (this.data.memories && this.data.memories.length > 0) ||
             (this.data.memory && this.data.memory.length > 0)
         ));
-        let isPast = (this.id < currentWeekIndex);
-        let isCurrent = (this.id === currentWeekIndex);
+        
+        // Use cached state (calculated once, not every frame)
+        // isBeforeBirth, isPast, and weekRange are already calculated in updateState()
+        let today = new Date();
+        let isCurrent = (this.id === currentWeekIndex && currentDisplayYear === today.getFullYear());
 
         // Rule 1: Set fill colour based on data and time
-        if (hasData) {
-            if (isPast) {
+        // If week is before birth, grey it out regardless of data
+        if (this.isBeforeBirth) {
+            // Grey out weeks before birth - use a muted grey color with reduced opacity
+            fill(color(180, 180, 180, 100)); // Light grey with reduced opacity
+        } else if (hasData) {
+            if (this.isPast) {
                 // Data in the past = Memory
                 fill(this.filledColourMemory);
             } else if (isCurrent) {
@@ -99,7 +157,7 @@ class WeekCircle {
             }
         } else {
             // No data - different colors for past, current, and future
-            if (isPast) {
+            if (this.isPast) {
                 // Empty past weeks = lighter color
                 fill(this.emptyColourPast);
             } else {
@@ -108,12 +166,17 @@ class WeekCircle {
             }
         }
         
-        // Rule 2: Highlight the current week
-        if (isCurrent) {
+        // Rule 2: Highlight the current week (but not if before birth)
+        if (isCurrent && !this.isBeforeBirth) {
             stroke(this.currentWeekColour);
             strokeWeight(6);
         } else {
-            stroke(this.borderColour);
+            // Grey out border for weeks before birth
+            if (this.isBeforeBirth) {
+                stroke(color(150, 150, 150, 100)); // Muted grey border
+            } else {
+                stroke(this.borderColour);
+            }
             strokeWeight(2);
         }
     
@@ -130,6 +193,11 @@ class WeekCircle {
      * @param {number} currentWeekIndex - The current week index
      */
     drawWeekNumber(currentWeekIndex) {
+        // Don't show week numbers for weeks before birth
+        if (this.isBeforeBirth) {
+            return;
+        }
+        
         // Show week number on hover OR if it's the current week
         if (this.isHovered || this.id === currentWeekIndex) {
             push();
@@ -142,16 +210,22 @@ class WeekCircle {
             ));
             let isCurrent = (this.id === currentWeekIndex);
             
-            // Set text properties based on week type and data
-            if (this.id > currentWeekIndex) {
-                // Future weeks - always dark
+            // Determine if this is a goal week (has data, future week, yellow background)
+            let isGoalWeek = hasData && !this.isPast && !isCurrent;
+            
+            // Set text color based on week type:
+            // - Goal weeks (yellow background): use dark text for visibility
+            // - Memory weeks (dark background): use light text for visibility
+            // - Empty weeks (light background): use dark text for visibility
+            if (isGoalWeek) {
+                // Goal week (yellow background) - use dark text
                 fill(this.filledColourMemory);
-            } else if (isCurrent) {
-                // Current week - dark if empty, light if filled
-                fill(hasData ? this.emptyColour : this.filledColourMemory);
-            } else {
-                // Past weeks - always light
+            } else if (hasData) {
+                // Memory week (dark background) - use light text
                 fill(this.emptyColour);
+            } else {
+                // Empty week (light background) - use dark text
+                fill(this.filledColourMemory);
             }
             
             textAlign(LEFT, TOP);
@@ -165,12 +239,15 @@ class WeekCircle {
             text(this.id + 1, this.x - this.baseSize / 2 + offsetX, this.y - this.baseSize / 2 + offsetY);
     
             // Weeks since birth (center, larger) - same color logic
-            if (this.id > currentWeekIndex) {
+            if (isGoalWeek) {
+                // Goal week (yellow background) - use dark text
                 fill(this.filledColourMemory);
-            } else if (isCurrent) {
-                fill(hasData ? this.emptyColour : this.filledColourMemory);
-            } else {
+            } else if (hasData) {
+                // Memory week (dark background) - use light text
                 fill(this.emptyColour);
+            } else {
+                // Empty week (light background) - use dark text
+                fill(this.filledColourMemory);
             }
             
             textAlign(CENTER, CENTER);
