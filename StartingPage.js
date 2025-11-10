@@ -19,26 +19,55 @@ class StartingPage {
   display() {
     push();
     
+    // Responsive text sizes
+    let titleSize = windowWidth < 600 ? 20 : windowWidth < 900 ? 26 : 32;
+    let subtitleSize = windowWidth < 600 ? 14 : windowWidth < 900 ? 16 : 18;
+    let noteSize = windowWidth < 600 ? 11 : windowWidth < 900 ? 12 : 14;
+    let hintSize = windowWidth < 600 ? 12 : windowWidth < 900 ? 14 : 16;
+    
+    // Responsive vertical spacing
+    let titleOffset = windowWidth < 600 ? -60 : windowWidth < 900 ? -80 : -100;
+    let noteOffset = windowWidth < 600 ? 30 : windowWidth < 900 ? 35 : 40;
+    let hintOffset = windowWidth < 600 ? 55 : windowWidth < 900 ? 70 : 80;
+    
     // Draw title
     textAlign(CENTER, CENTER);
     fill(this.titleColor);
-    textSize(32);
-    text(this.title, width / 2, height / 2 - 100);
+    textSize(titleSize);
+    // Wrap long title on mobile
+    if (windowWidth < 600) {
+      // Split title into two lines on mobile
+      let words = this.title.split(' ');
+      let midPoint = Math.ceil(words.length / 2);
+      let line1 = words.slice(0, midPoint).join(' ');
+      let line2 = words.slice(midPoint).join(' ');
+      text(line1, width / 2, height / 2 + titleOffset);
+      text(line2, width / 2, height / 2 + titleOffset + titleSize * 1.2);
+    } else {
+      text(this.title, width / 2, height / 2 + titleOffset);
+    }
     
     // Draw subtitle
-    textSize(18);
+    textSize(subtitleSize);
     fill(this.subtitleColor);
-    text(this.subtitle, width / 2, height / 2);
+    let subtitleY = windowWidth < 600 ? height / 2 - 20 : height / 2;
+    text(this.subtitle, width / 2, subtitleY);
     
     // Draw note
-    textSize(14);
+    textSize(noteSize);
     fill(this.noteColor);
-    text(this.note, width / 2, height / 2 + 40);
+    text(this.note, width / 2, height / 2 + noteOffset);
     
     // Draw a subtle hint about the visualization
-    textSize(16);
+    textSize(hintSize);
     fill(this.noteColor);
-    text("Each circle represents one week of your life", width / 2, height / 2 + 80);
+    // Wrap hint text on mobile
+    if (windowWidth < 600) {
+      text("Each circle represents", width / 2, height / 2 + hintOffset);
+      text("one week of your life", width / 2, height / 2 + hintOffset + hintSize * 1.2);
+    } else {
+      text("Each circle represents one week of your life", width / 2, height / 2 + hintOffset);
+    }
     
     pop();
   }
@@ -59,11 +88,7 @@ class StartingPage {
         // Save birth date to localStorage
         localStorage.setItem('userBirthDate', dateString);
         
-        // Trigger the main app initialization
-        if (typeof initializeMainApp === 'function') {
-          initializeMainApp();
-        }
-        
+        // Return true - initialization will be handled by sketch.js
         return true;
       } else {
         alert("Invalid date format or future date. Please use YYYY-MM-DD format and enter a past date.");

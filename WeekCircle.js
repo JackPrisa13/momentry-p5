@@ -77,7 +77,11 @@ class WeekCircle {
         this.update();
         strokeWeight(2);
         
-        let hasData = (this.data && this.data.memory && this.data.memory.length > 0);
+        // Check if week has memories (new format) or memory (old format for migration)
+        let hasData = (this.data && (
+            (this.data.memories && this.data.memories.length > 0) ||
+            (this.data.memory && this.data.memory.length > 0)
+        ));
         let isPast = (this.id < currentWeekIndex);
         let isCurrent = (this.id === currentWeekIndex);
 
@@ -131,8 +135,11 @@ class WeekCircle {
             push();
             noStroke();
             
-            // Check if current week has data
-            let hasData = (this.data && this.data.memory && this.data.memory.length > 0);
+            // Check if current week has data (memories array or old memory string)
+            let hasData = (this.data && (
+                (this.data.memories && this.data.memories.length > 0) ||
+                (this.data.memory && this.data.memory.length > 0)
+            ));
             let isCurrent = (this.id === currentWeekIndex);
             
             // Set text properties based on week type and data
@@ -148,9 +155,14 @@ class WeekCircle {
             }
             
             textAlign(LEFT, TOP);
-            textSize(12);
+            // Responsive text size for week number
+            let weekNumSize = windowWidth < 600 ? 8 : windowWidth < 900 ? 10 : 12;
+            textSize(weekNumSize);
             textStyle(ITALIC);
-            text(this.id + 1, this.x - this.baseSize / 2 + 15, this.y - this.baseSize / 2 + 20);
+            // Responsive offset based on circle size
+            let offsetX = this.baseSize * 0.15;
+            let offsetY = this.baseSize * 0.20;
+            text(this.id + 1, this.x - this.baseSize / 2 + offsetX, this.y - this.baseSize / 2 + offsetY);
     
             // Weeks since birth (center, larger) - same color logic
             if (this.id > currentWeekIndex) {
@@ -162,7 +174,9 @@ class WeekCircle {
             }
             
             textAlign(CENTER, CENTER);
-            textSize(25);
+            // Responsive text size for weeks since birth
+            let weeksSize = windowWidth < 600 ? 15 : windowWidth < 900 ? 20 : 25;
+            textSize(weeksSize);
             text(this.weeksSinceBirth.toLocaleString(), this.x, this.y);
             
             pop();

@@ -14,8 +14,38 @@
   </head>
 
   <body>
+    <!-- Modal Dialog for Memory/Goal Entry -->
+    <div id="entry-modal">
+      <div class="modal-content">
+        <h2 id="modal-title">Add Memory/Goal</h2>
+        
+        <!-- Existing Memories List -->
+        <div id="memories-list-container">
+          <h3 id="memories-list-title">Existing Memories</h3>
+          <div id="memories-list"></div>
+        </div>
+        
+        <!-- Add/Edit Memory Section -->
+        <div id="memory-input-section">
+          <label for="memory-date-input">Date:</label>
+          <input type="date" id="memory-date-input">
+          
+          <label for="modal-text-input">Memory/Goal:</label>
+          <textarea id="modal-text-input" placeholder="Enter your memory or goal..."></textarea>
+          
+          <div id="image-upload-area">Image upload coming soon</div>
+          
+          <div class="modal-buttons">
+            <button id="modal-save-btn">Save</button>
+            <button id="modal-cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="WeekCircle.js"></script>
     <script src="StartingPage.js"></script>
+    <script src="MouseTrail.js"></script>
     <script src="storage.js"></script>
     <script src="sketch.js"></script>
   </body>
