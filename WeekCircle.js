@@ -158,8 +158,9 @@ class WeekCircle {
         } else {
             // No data - different colors for past, current, and future
             if (this.isPast) {
-                // Empty past weeks = lighter color
-                fill(this.emptyColourPast);
+                // Empty past weeks = lighter color with transparency to avoid darkening the whole view
+                // Use ~60% opacity for better balance across full past-year grids
+                fill(color(this.emptyColourPast + "99"));
             } else {
                 // Empty future weeks = original empty color
                 fill(color(this.emptyColour + "66")); // Add opacity (hex '66' = 40% alpha)

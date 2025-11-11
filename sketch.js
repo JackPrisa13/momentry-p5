@@ -35,6 +35,9 @@ let editingMemoryId = null; // ID of memory being edited, null if adding new
 // Mouse trail
 let mouseTrail;
 
+// Goal countdown
+let goalCountdown;
+
 // --- Grid Layout Parameters ---
 const numRows = 7;
 let circleSize = 100; // Made variable for responsive design
@@ -195,6 +198,9 @@ function setup() {
   // Initialize mouse trail
   mouseTrail = new MouseTrail();
   mouseTrail.initialize();
+  
+  // Initialize goal countdown
+  goalCountdown = new GoalCountdown();
 }
 
 // Modal and memory management functions are now in ModalManager.js
@@ -268,6 +274,12 @@ function draw() {
   // Draw mouse trail on top of everything
   if (mouseTrail) {
     mouseTrail.display(showStartingPage);
+  }
+  
+  // Update and display goal countdown (only when not on starting page)
+  if (!showStartingPage && goalCountdown && birthDate) {
+    goalCountdown.update(birthDate, currentDisplayYear, currentWeekIndex);
+    goalCountdown.display();
   }
 }
 
@@ -708,7 +720,7 @@ function drawHeader() {
     let topMargin = windowWidth < 600 ? 20 : windowWidth < 900 ? 40 : 60;
     let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 35);
     
-    text(`You are ${userAge} years old, which means you have lived for ${weeksLived.toLocaleString()} weeks`, 
+    text(`You are ${userAge} years old. You have lived for ${weeksLived.toLocaleString()} weeks`, 
           width / 2, topMargin);
     
     // Show current year being displayed
