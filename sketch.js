@@ -37,6 +37,9 @@ class App {
     this.mouseTrail = null;
     this.goalCountdown = null;
     
+    // Rain particles for soulful background effect
+    this.rainParticles = [];
+    
     // Grid Layout Parameters
     this.numRows = 7;
     this.circleSize = 100; // Made variable for responsive design
@@ -225,6 +228,13 @@ function setup() {
 
   // Initialize goal countdown
   app.goalCountdown = new GoalCountdown();
+  
+  // Initialize rain particles - create a few hundred for subtle background effect
+  app.rainParticles = [];
+  let numParticles = 3000; // Adjust for desired density
+  for (let i = 0; i < numParticles; i++) {
+    app.rainParticles.push(new RainParticle());
+  }
 }
 
 /**
@@ -235,6 +245,12 @@ function draw() {
   // Background is set by StartingPage during intro, or by backgroundColour in main app
   if (!app.showStartingPage) {
     background(app.backgroundColour);
+    
+    // Draw rain particles first (behind everything else)
+    for (let particle of app.rainParticles) {
+      particle.update();
+      particle.display();
+    }
   }
   
   // Update mouse trail
@@ -823,6 +839,9 @@ function windowResized() {
   
   // Recalculate responsive sizes
   calculateResponsiveSizes();
+  
+  // Reset rain particles for new canvas size (optional - particles will naturally wrap)
+  // We could recreate them, but letting them wrap naturally is fine
   
   // Update existing circles if the app is initialized
   if (!app.showStartingPage && app.weeks.length > 0) {

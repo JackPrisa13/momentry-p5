@@ -137,7 +137,7 @@ class WeekCircle {
         
       // Set the target size based on hover state
         if (this.isHovered) {
-            this.targetSize = this.baseSize * 1.25; // 30% zoom
+            this.targetSize = this.baseSize * 1.25; // 25% zoom
         } else {
             this.targetSize = this.baseSize;
         }
@@ -177,8 +177,8 @@ class WeekCircle {
         // Rule 1: Set fill colour based on data and time
         // If week is before birth, grey it out regardless of data
         if (this.isBeforeBirth) {
-            // Grey out weeks before birth - use a muted grey color with reduced opacity
-            fill(color(180, 180, 180, 100)); // Light grey with reduced opacity
+            // Grey out weeks before birth - use a muted grey color (fully opaque)
+            fill(color(180, 180, 180, 255)); // Light grey, fully opaque
         } else if (hasData) {
             if (this.isPast) {
                 // Data in the past = Memory
@@ -193,12 +193,11 @@ class WeekCircle {
         } else {
             // No data - different colors for past, current, and future
             if (this.isPast) {
-                // Empty past weeks = lighter color with transparency to avoid darkening the whole view
-                // Use ~60% opacity for better balance across full past-year grids
+                // Empty past weeks = lighter color with soft transparency to indicate missing memory
                 fill(color(this.emptyColourPast + "99"));
             } else {
-                // Empty future weeks = original empty color
-                fill(color(this.emptyColour + "66")); // Add opacity (hex '66' = 40% alpha)
+                // Empty future weeks = original empty color with transparency
+                fill(color(this.emptyColour + "66")); // Hex '66' ~ 40% alpha
             }
         }
         
@@ -209,7 +208,7 @@ class WeekCircle {
         } else {
             // Grey out border for weeks before birth
             if (this.isBeforeBirth) {
-                stroke(color(150, 150, 150, 100)); // Muted grey border
+                stroke(color(150, 150, 150, 255)); // Muted grey border, fully opaque
             } else {
                 stroke(this.borderColour);
             }
