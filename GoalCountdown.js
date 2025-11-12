@@ -6,6 +6,7 @@
 class GoalCountdown {
   constructor() {
     this.goals = []; // Array of { title, weeksUntil, daysUntil, weekDate, goalDate }
+    this.hoverStates = new Map(); // Track hover state by goal key (memoryId + weeksSinceBirth)
   }
 
   /**
@@ -14,8 +15,9 @@ class GoalCountdown {
    * @param {Date} birthDate - User's birth date
    * @param {number} currentDisplayYear - Currently displayed year
    * @param {number} currentWeekIndex - Current week index (0-51)
+   * @param {Date} today - The current date (passed from draw() to avoid creating it every frame)
    */
-  update(birthDate, currentDisplayYear, currentWeekIndex) {
+  update(birthDate, currentDisplayYear, currentWeekIndex, today) {
     this.birthDate = birthDate; // Store for click detection
     if (!birthDate) {
       this.goals = [];
@@ -23,7 +25,7 @@ class GoalCountdown {
     }
 
     this.goals = [];
-    let today = new Date();
+    // Use passed today parameter instead of creating new Date() every frame
     let currentYear = today.getFullYear();
     
     // Check current year and future years for goals
@@ -45,10 +47,8 @@ class GoalCountdown {
         let weekMonday = weekRange.startDate;
         
         // Check if this week is in the future
-        let weekStart = new Date(weekMonday);
-        weekStart.setHours(0, 0, 0, 0);
-        let todayStart = new Date(today);
-        todayStart.setHours(0, 0, 0, 0);
+        let weekStart = normalizeDateToStartOfDay(new Date(weekMonday));
+        let todayStart = normalizeDateToStartOfDay(today);
         
         // Skip if this week is in the past or current week
         // We want to show goals that are in the future (weekStart > todayStart)
@@ -69,6 +69,9 @@ class GoalCountdown {
           // Calculate weeks since birth for this goal (needed for opening the memory)
           let weeksSinceBirth = getWeeksSinceBirth(weekIndex, year, birthDate);
           
+          // Create unique key for this goal to track hover state
+          let goalKey = `${memory.id}_${weeksSinceBirth}`;
+          
           this.goals.push({
             title: memory.title || memory.text || 'Untitled', // Use title, fallback to text, then "Untitled"
             memoryId: memory.id, // Store memory ID for opening
@@ -77,6 +80,7 @@ class GoalCountdown {
             daysUntil: diffDays,
             weekDate: weekStart,
             goalDate: goalDate,
+            goalKey: goalKey, // Unique identifier for hover tracking
             // Store card bounds for click detection
             cardBounds: null // Will be calculated in display()
           });
@@ -89,8 +93,6 @@ class GoalCountdown {
     
     // Limit to first 5 goals to help focus (concept: focus on 5 at a time)
     this.goals = this.goals.slice(0, 5);
-    
-    // Debug logging removed to avoid console spam each frame
   }
 
   /**
@@ -127,7 +129,7 @@ class GoalCountdown {
     // Calculate total height of all goal cards
     let totalCardsHeight = (this.goals.length * goalBlockHeight) + ((this.goals.length - 1) * goalBlockSpacing);
     
-    // Draw title "On the horizon" above the cards
+    // Title above the cards
     push();
     noStroke();
     textAlign(LEFT, BOTTOM);
@@ -135,7 +137,7 @@ class GoalCountdown {
     fill("#525349");
     textStyle(BOLD);
     let titleY = startY - totalCardsHeight - titleSpacing;
-    text("On the horizon", startX, titleY);
+    text("On the horizon...", startX, titleY);
     pop();
     
     // Display all goals as cards (from bottom to top)
@@ -159,8 +161,20 @@ class GoalCountdown {
       goal.cardBounds = bounds;
       
       // Check if mouse is hovering over this card
+      let wasHovered = this.hoverStates.get(goal.goalKey) || false; // Get previous hover state from Map
       let isHovered = mouseX >= bounds.x && mouseX <= bounds.x + bounds.width &&
                       mouseY >= bounds.y && mouseY <= bounds.y + bounds.height;
+      
+      // Play hover sound when entering hover state (same as week circles)
+      // Only play if transitioning from not hovered to hovered
+      if (isHovered && !wasHovered) {
+        if (typeof playTick === 'function') {
+          playTick();
+        }
+      }
+      
+      // Store current hover state in Map for next frame (persists across goal array recreation)
+      this.hoverStates.set(goal.goalKey, isHovered);
       
       // Draw card background
       push();
@@ -175,7 +189,7 @@ class GoalCountdown {
       
       // Draw card border
       push();
-      stroke(isHovered ? "#68D58B" : "#BFC0B1");
+      stroke(isHovered ? "#ff914d" : "#BFC0B1");
       strokeWeight(isHovered ? 2 : 1);
       noFill();
       rect(bounds.x, bounds.y, bounds.width, bounds.height, 8);

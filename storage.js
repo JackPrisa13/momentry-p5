@@ -13,7 +13,6 @@ function saveData(data, year) {
     // Store data with year-specific key
     let storageKey = `momentryData_${year}`;
     localStorage.setItem(storageKey, JSON.stringify(data));
-    // Debug logging removed to prevent console spam
 }
 
 /**
@@ -67,7 +66,7 @@ function migrateOldDataFormat(data) {
  * @returns {string} - Unique memory ID
  */
 function generateMemoryId() {
-    return 'mem_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return 'mem_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
 }
 
 /**
@@ -111,7 +110,7 @@ function loadData(year) {
     let savedData = localStorage.getItem(storageKey);
 
     if (savedData) {
-        // If we found data, parse it and return it
+      // If we found data, parse it and return it
         let parsedData = JSON.parse(savedData);
         
         // Check if migration is needed (old format detection)
@@ -123,13 +122,13 @@ function loadData(year) {
         
         return parsedData;
     } else {
-        // If no data, create a brand new empty structure
+      // If no data, create a brand new empty structure
         let newData = [];
         for (let i = 0; i < 52; i++) {
             // Each week is an object with an empty memories array
-            newData.push({
+        newData.push({
                 memories: []
-            });
+        });
         }
         return newData;
     }

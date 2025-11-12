@@ -13,6 +13,34 @@ let modalImageDataURL = null; // For image edit section
 let modalImageDataURLNew = null; // For new memory input section
 
 /**
+ * formatDateForDisplay()
+ * Formats a date string for display in the memory list (short format)
+ * @param {string} dateString - Date string in YYYY-MM-DD format
+ * @returns {string} - Formatted date string
+ */
+function formatDateForDisplay(dateString) {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+/**
+ * formatDateForView()
+ * Formats a date string for display in the memory view (long format)
+ * @param {string} dateString - Date string in YYYY-MM-DD format
+ * @returns {string} - Formatted date string
+ */
+function formatDateForView(dateString) {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+/**
  * resizeImage()
  * Resizes an image to a maximum dimension while maintaining aspect ratio
  * @param {string} dataURL - Base64 image data URL
@@ -60,6 +88,92 @@ function resizeImage(dataURL, maxDimension = 1080) {
     };
     img.src = dataURL;
   });
+}
+
+/**
+ * setupImageInputHandler()
+ * Sets up event listeners for an image input element
+ * @param {HTMLElement} imageInput - The file input element
+ * @param {HTMLElement} imagePreview - The preview image element
+ * @param {HTMLElement} imageClearBtn - The clear button element
+ * @param {string} dataURLVar - Variable name to store the data URL ('modalImageDataURL' or 'modalImageDataURLNew')
+ */
+function setupImageInputHandler(imageInput, imagePreview, imageClearBtn, dataURLVar) {
+  if (!imageInput) return;
+  
+  imageInput.addEventListener('change', function(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      return;
+    }
+    
+    // Check file size (10MB = 10 * 1024 * 1024 bytes)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Image file is too large. Maximum size is 10MB. Please choose a smaller image.');
+      imageInput.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      // Resize image to max 1080px on longest side
+      resizeImage(evt.target.result, 1080)
+        .then(function(resizedDataURL) {
+          // Store in appropriate variable
+          if (dataURLVar === 'modalImageDataURL') {
+            modalImageDataURL = resizedDataURL;
+          } else if (dataURLVar === 'modalImageDataURLNew') {
+            if (editingMemoryId !== null) {
+              modalImageDataURL = resizedDataURL; // For editing
+            } else {
+              modalImageDataURLNew = resizedDataURL; // For new memory
+            }
+          }
+          
+          if (imagePreview) {
+            imagePreview.src = resizedDataURL;
+            imagePreview.style.display = 'block';
+          }
+          if (imageClearBtn) {
+            imageClearBtn.style.display = 'inline-block';
+          }
+        })
+        .catch(function(error) {
+          console.error('Error resizing image:', error);
+          alert('Error processing image. Please try again.');
+          imageInput.value = '';
+        });
+    };
+    reader.onerror = function() {
+      alert('Error reading image file. Please try again.');
+      imageInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  if (imageClearBtn) {
+    imageClearBtn.addEventListener('click', function() {
+      if (dataURLVar === 'modalImageDataURL') {
+        modalImageDataURL = null;
+      } else if (dataURLVar === 'modalImageDataURLNew') {
+        if (editingMemoryId !== null) {
+          modalImageDataURL = null; // null means "remove image" when editing
+        } else {
+          modalImageDataURLNew = null; // For new memory
+        }
+      }
+      
+      if (imagePreview) {
+        imagePreview.removeAttribute('src');
+        imagePreview.style.display = 'none';
+      }
+      if (imageInput) {
+        imageInput.value = '';
+      }
+      imageClearBtn.style.display = 'none';
+    });
+  }
 }
 
 /**
@@ -121,134 +235,13 @@ function setupModalListeners() {
   const imageInput = document.getElementById('memory-image-input');
   const imagePreview = document.getElementById('memory-image-preview');
   const imageClearBtn = document.getElementById('memory-image-clear-btn');
-
-  if (imageInput) {
-    imageInput.addEventListener('change', function(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) {
-        return;
-      }
-      
-      // Check file size (10MB = 10 * 1024 * 1024 bytes)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert('Image file is too large. Maximum size is 10MB. Please choose a smaller image.');
-        imageInput.value = ''; // Clear the input
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        // Resize image to max 1080px on longest side
-        resizeImage(evt.target.result, 1080)
-          .then(function(resizedDataURL) {
-            modalImageDataURL = resizedDataURL;
-            if (imagePreview) {
-              imagePreview.src = modalImageDataURL;
-              imagePreview.style.display = 'block';
-            }
-            if (imageClearBtn) {
-              imageClearBtn.style.display = 'inline-block';
-            }
-          })
-          .catch(function(error) {
-            console.error('Error resizing image:', error);
-            alert('Error processing image. Please try again.');
-            imageInput.value = '';
-          });
-      };
-      reader.onerror = function() {
-        alert('Error reading image file. Please try again.');
-        imageInput.value = '';
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  if (imageClearBtn) {
-    imageClearBtn.addEventListener('click', function() {
-      modalImageDataURL = null;
-      if (imagePreview) {
-        imagePreview.removeAttribute('src');
-        imagePreview.style.display = 'none';
-      }
-      if (imageInput) {
-        imageInput.value = '';
-      }
-      imageClearBtn.style.display = 'none';
-    });
-  }
+  setupImageInputHandler(imageInput, imagePreview, imageClearBtn, 'modalImageDataURL');
 
   // Image input handlers (for input section - used for both new and editing)
   const imageInputNew = document.getElementById('memory-image-input-new');
   const imagePreviewNew = document.getElementById('memory-image-preview-new');
   const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
-
-  if (imageInputNew) {
-    imageInputNew.addEventListener('change', function(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) {
-        return;
-      }
-      
-      // Check file size (10MB = 10 * 1024 * 1024 bytes)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert('Image file is too large. Maximum size is 10MB. Please choose a smaller image.');
-        imageInputNew.value = ''; // Clear the input
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        // Resize image to max 1080px on longest side
-        resizeImage(evt.target.result, 1080)
-          .then(function(resizedDataURL) {
-            // Use the same variable for both new and editing
-            if (editingMemoryId !== null) {
-              modalImageDataURL = resizedDataURL; // For editing
-            } else {
-              modalImageDataURLNew = resizedDataURL; // For new memory
-            }
-            if (imagePreviewNew) {
-              imagePreviewNew.src = resizedDataURL;
-              imagePreviewNew.style.display = 'block';
-            }
-            if (imageClearBtnNew) {
-              imageClearBtnNew.style.display = 'inline-block';
-            }
-          })
-          .catch(function(error) {
-            console.error('Error resizing image:', error);
-            alert('Error processing image. Please try again.');
-            imageInputNew.value = '';
-          });
-      };
-      reader.onerror = function() {
-        alert('Error reading image file. Please try again.');
-        imageInputNew.value = '';
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  if (imageClearBtnNew) {
-    imageClearBtnNew.addEventListener('click', function() {
-      if (editingMemoryId !== null) {
-        modalImageDataURL = null; // null means "remove image" when editing
-      } else {
-        modalImageDataURLNew = null; // For new memory
-      }
-      if (imagePreviewNew) {
-        imagePreviewNew.removeAttribute('src');
-        imagePreviewNew.style.display = 'none';
-      }
-      if (imageInputNew) {
-        imageInputNew.value = '';
-      }
-      imageClearBtnNew.style.display = 'none';
-    });
-  }
+  setupImageInputHandler(imageInputNew, imagePreviewNew, imageClearBtnNew, 'modalImageDataURLNew');
   
   // View memory close button
   let closeViewBtn = document.getElementById('memory-close-view-btn');
@@ -274,8 +267,6 @@ function setupModalListeners() {
     });
   }
 
-  // Note: Edit Image button removed - editing is now combined with content editing
-  
   // Save button
   let saveBtn = document.getElementById('modal-save-btn');
   saveBtn.addEventListener('click', function() {
@@ -654,22 +645,14 @@ function displayMemoriesList(weeksSinceBirth) {
     return;
   }
   
-  // Sort memories by date (newest first)
-  let sortedMemories = [...yearDataForWeek[yearWeekInfo.weekIndex].memories].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-  
-  sortedMemories.forEach(memory => {
+  // Memories are already sorted by date when added/edited, so use them directly
+  yearDataForWeek[yearWeekInfo.weekIndex].memories.forEach(memory => {
     let memoryItem = document.createElement('div');
     memoryItem.className = 'memory-item';
     memoryItem.style.cursor = 'pointer';
     
     // Format date for display
-    let displayDate = new Date(memory.date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    let displayDate = formatDateForDisplay(memory.date);
     
     // Get title (fallback to first part of text if no title)
     let displayTitle = memory.title || (memory.text ? memory.text.substring(0, 50) + (memory.text.length > 50 ? '...' : '') : 'Untitled');
@@ -748,11 +731,7 @@ function viewMemory(weeksSinceBirth, memoryId) {
     }
     
     if (viewDate) {
-      let displayDate = new Date(memory.date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      let displayDate = formatDateForView(memory.date);
       viewDate.textContent = displayDate;
     }
     
@@ -787,45 +766,6 @@ function showMemoryInputSection(hideList) {
   // Hide list when editing, show when adding new
   if (memoriesListContainer) {
     memoriesListContainer.style.display = hideList ? 'none' : 'block';
-  }
-}
-
-/**
- * showImageEditSection()
- * Shows the image edit section and hides other sections
- */
-function showImageEditSection() {
-  let inputSection = document.getElementById('memory-input-section');
-  let viewSection = document.getElementById('memory-view-section');
-  let imageEditSection = document.getElementById('image-edit-section');
-  let memoriesListContainer = document.getElementById('memories-list-container');
-  
-  if (inputSection) inputSection.style.display = 'none';
-  if (viewSection) viewSection.style.display = 'none';
-  if (memoriesListContainer) memoriesListContainer.style.display = 'none'; // Hide list when editing image
-  if (imageEditSection) {
-    imageEditSection.style.display = 'block';
-    
-    // Load current image if it exists
-    if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
-      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
-      if (yearWeekInfo) {
-        let yearDataForWeek = loadData(yearWeekInfo.year);
-        if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
-          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === editingMemoryId);
-          if (memory && memory.imageData) {
-            modalImageDataURL = memory.imageData;
-            const imagePreview = document.getElementById('memory-image-preview');
-            const imageClearBtn = document.getElementById('memory-image-clear-btn');
-            if (imagePreview) {
-              imagePreview.src = memory.imageData;
-              imagePreview.style.display = 'block';
-            }
-            if (imageClearBtn) imageClearBtn.style.display = 'inline-block';
-          }
-        }
-      }
-    }
   }
 }
 

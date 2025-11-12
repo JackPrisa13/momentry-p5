@@ -80,7 +80,7 @@ function toggleBackgroundMusic() {
 function updateMusicIcon() {
   let musicIcon = document.getElementById('music-icon');
   if (musicIcon) {
-    musicIcon.textContent = musicPlaying ? '🔊' : '🔇';
+    musicIcon.textContent = musicPlaying ? '♫' : 'Ⓧ';
   }
 }
 

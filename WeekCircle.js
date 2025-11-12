@@ -16,7 +16,7 @@ class WeekCircle {
         this.emptyColourPast = "#BFC0B1";
         this.filledColourMemory = "#525349";
         this.filledColourGoal = "#F4CD7F";
-        this.currentWeekColour = "#68D58B";
+        this.currentWeekColour = "#ff914d";
         this.borderColour = "#0B0D07B3";
     
         // --- State & Animation ---
@@ -30,6 +30,19 @@ class WeekCircle {
         this.isBeforeBirth = false;
         this.isPast = false;
         this.weekRange = null; // Cached week date range
+        this.hasData = false; // Cached data check
+    }
+    
+    /**
+     * checkHasData()
+     * Checks if this week has any memories (cached for performance)
+     * @returns {boolean} - True if week has data
+     */
+    checkHasData() {
+        return (this.data && (
+            (this.data.memories && this.data.memories.length > 0) ||
+            (this.data.memory && this.data.memory.length > 0)
+        ));
     }
     
     /**
@@ -60,6 +73,9 @@ class WeekCircle {
         let todayStart = new Date(today);
         todayStart.setHours(0, 0, 0, 0);
         this.isPast = weekMondayStart < todayStart;
+        
+        // Cache hasData check
+        this.hasData = this.checkHasData();
     }
 
     /**
@@ -122,21 +138,19 @@ class WeekCircle {
      * @param {number} currentWeekIndex - The current week index (for current year)
      * @param {number} currentDisplayYear - The year currently being displayed
      * @param {Date} birthDate - The user's birth date (to check if week is before birth)
+     * @param {Date} today - The current date (passed from draw() to avoid creating it 52 times per frame)
      */
-    display(currentWeekIndex, currentDisplayYear, birthDate) {
+    display(currentWeekIndex, currentDisplayYear, birthDate, today) {
       // First, update the size animation
         this.update();
         strokeWeight(2);
         
-        // Check if week has memories (new format) or memory (old format for migration)
-        let hasData = (this.data && (
-            (this.data.memories && this.data.memories.length > 0) ||
-            (this.data.memory && this.data.memory.length > 0)
-        ));
+        // Use cached hasData (calculated once in updateState, not every frame)
+        let hasData = this.hasData;
         
         // Use cached state (calculated once, not every frame)
         // isBeforeBirth, isPast, and weekRange are already calculated in updateState()
-        let today = new Date();
+        // Use passed today parameter instead of creating new Date() every frame
         let isCurrent = (this.id === currentWeekIndex && currentDisplayYear === today.getFullYear());
 
         // Rule 1: Set fill colour based on data and time
@@ -204,11 +218,8 @@ class WeekCircle {
             push();
             noStroke();
             
-            // Check if current week has data (memories array or old memory string)
-            let hasData = (this.data && (
-                (this.data.memories && this.data.memories.length > 0) ||
-                (this.data.memory && this.data.memory.length > 0)
-            ));
+            // Use cached hasData (calculated once in updateState, not every frame)
+            let hasData = this.hasData;
             let isCurrent = (this.id === currentWeekIndex);
             
             // Determine if this is a goal week (has data, future week, yellow background)

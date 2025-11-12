@@ -28,8 +28,11 @@ class MouseTrail {
    */
   update(showStartingPage) {
     // Check if modal is open - don't update trail if modal is open
-    let modal = document.getElementById('entry-modal');
-    let isModalOpen = modal && modal.classList.contains('show');
+    // Cache modal check to avoid repeated DOM queries
+    if (!this._cachedModal) {
+      this._cachedModal = document.getElementById('entry-modal');
+    }
+    let isModalOpen = this._cachedModal && this._cachedModal.classList.contains('show');
     
     if (isModalOpen || showStartingPage) {
       // Clear trail when modal opens or on starting page
@@ -76,8 +79,11 @@ class MouseTrail {
    */
   display(showStartingPage) {
     // Check if modal is open or on starting page - don't draw trail
-    let modal = document.getElementById('entry-modal');
-    let isModalOpen = modal && modal.classList.contains('show');
+    // Use cached modal element from update() to avoid repeated DOM queries
+    if (!this._cachedModal) {
+      this._cachedModal = document.getElementById('entry-modal');
+    }
+    let isModalOpen = this._cachedModal && this._cachedModal.classList.contains('show');
     
     if (isModalOpen || showStartingPage || this.trail.length < 2) {
       return;

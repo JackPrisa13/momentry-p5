@@ -2,7 +2,7 @@
 
 // This array will hold the 52 WeekCircle objects
 let weeks = [];
-// This array will hold the 52 data objects (e.g., { memory: "..." })
+// This array will hold the 52 data objects
 let yearData = [];
 
 // Audio for hover sounds
@@ -13,7 +13,7 @@ const TICK_GAP_MS = 80; // Small cooldown between sounds
 // Background music
 let bgMusic;
 let musicPlaying = false;
-let musicVolume = 0.3; // 30% volume
+let musicVolume = 0.1; // 10% volume
 let musicStarted = false;
 
 let currentWeekIndex;
@@ -43,12 +43,12 @@ const numRows = 7;
 let circleSize = 100; // Made variable for responsive design
 let xSpacing = circleSize + 30;
 // Use a tighter vertical spacing for the honeycomb look
-let ySpacing = circleSize + 0; 
+let ySpacing = circleSize; 
 const backgroundColour = "#F7F6E4";
 
 /**
  * p5.js preload()
- * Runs before setup(). Use it to load assets.
+ * Runs before setup().
  */
 function preload() {
   // Load background music
@@ -57,13 +57,10 @@ function preload() {
 
 /**
  * calculateAgeAndWeeks()
- * Wrapper function that updates global variables from DateUtils
- * Note: DateUtils.calculateAgeAndWeeks takes birthDate as parameter
+ * Updates global variables from DateUtils
  */
 function calculateAgeAndWeeks() {
   if (birthDate) {
-    // Call DateUtils function directly (it's in global scope from DateUtils.js)
-    // We need to use the function before we shadow it, so we'll call it inline
     let now = new Date();
     let diffTime = now.getTime() - birthDate.getTime();
     let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -75,20 +72,24 @@ function calculateAgeAndWeeks() {
 /**
  * getWeeksSinceBirth()
  * Wrapper that uses DateUtils function with global birthDate
+ * Accepts 2 or 3 parameters for compatibility
  * @param {number} weekIndex - The week index (0-51)
  * @param {number} year - The year to calculate for (defaults to currentDisplayYear)
+ * @param {Date} [providedBirthDate] - Optional birth date (uses global birthDate if not provided)
  */
-function getWeeksSinceBirth(weekIndex, year) {
-  if (!birthDate) return weekIndex + 1;
+function getWeeksSinceBirth(weekIndex, year, providedBirthDate) {
+  // Use provided birthDate or global birthDate
+  let dateToUse = providedBirthDate || birthDate;
+  if (!dateToUse) return weekIndex + 1;
   
   // Use provided year or currentDisplayYear, or fallback to current year
   if (year === undefined) {
     year = currentDisplayYear || new Date().getFullYear();
   }
   
+  // Use the same logic as DateUtils version
   let weekStartDate = getDateFromWeekIndex(weekIndex, year);
-  
-  let diffTime = weekStartDate.getTime() - birthDate.getTime();
+  let diffTime = weekStartDate.getTime() - dateToUse.getTime();
   let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   let weeksSinceBirth = Math.floor(diffDays / 7);
   
@@ -105,44 +106,49 @@ function calculateResponsiveSizes() {
     // Mobile: smaller circles
     circleSize = 40;
     xSpacing = circleSize + 15;
-    ySpacing = circleSize + 0;
+    ySpacing = circleSize;
   } else if (windowWidth < 900) {
     // Tablet: medium circles
     circleSize = 60;
     xSpacing = circleSize + 20;
-    ySpacing = circleSize + 0;
+    ySpacing = circleSize;
   } else if (windowWidth < 1200) {
     // Small desktop: slightly smaller
     circleSize = 80;
     xSpacing = circleSize + 25;
-    ySpacing = circleSize + 0;
+    ySpacing = circleSize;
   } else {
     // Large desktop: full size
     circleSize = 100;
     xSpacing = circleSize + 30;
-    ySpacing = circleSize + 0;
+    ySpacing = circleSize;
   }
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
+  // Set font for all p5.js text (Inter - open source font)
+  textFont('Inter');
+
   // Calculate responsive sizes (after canvas is created)
   calculateResponsiveSizes();
 
   // Initialize starting page
   startingPage = new StartingPage();
-
-  // TODO: Check if birth date exists
+  
+  // Check if birth date already exists
   if (StartingPage.checkIfBirthDateExists()) {
+    // Birth date exists - skip intro and go directly to transition
     birthDate = StartingPage.getSavedBirthDate();
     calculateAgeAndWeeks();
-    showStartingPage = false;
-    initializeMainApp();
+    // Start transition immediately
+    startingPage.startTransitionFromExisting();
+    showStartingPage = true; // Still show starting page to display transition
+  } else {
+    // No birth date - show intro sequence
+    showStartingPage = true;
   }
-
-  // Always show starting page (don't check for saved birth date) For testing purposes 
-  // showStartingPage = true;
 
   // --- Audio Setup ---
   osc = new p5.Oscillator("sine");
@@ -153,7 +159,6 @@ function setup() {
   env = new p5.Envelope(0.001, 0.25, 0.04, 0.0);
 
   // --- Background Music Setup ---
-  // Create ambient background music using multiple oscillators
   setupBackgroundMusic();
   startBackgroundMusic();
   
@@ -201,15 +206,15 @@ function setup() {
   goalCountdown = new GoalCountdown();
 }
 
-// Modal and memory management functions are now in ModalManager.js
-
 /**
  * p5.js draw()
  * Runs 60 times per second.
  */
 function draw() {
-  // Set background to the dark grey from your sketch
-  background(backgroundColour);
+  // Background is set by StartingPage during intro, or by backgroundColour in main app
+  if (!showStartingPage) {
+    background(backgroundColour);
+  }
   
   // Update mouse trail
   if (mouseTrail) {
@@ -218,6 +223,19 @@ function draw() {
 
   if (showStartingPage) {
     startingPage.display();
+    
+    // Check if intro sequence is complete
+    if (startingPage.isComplete()) {
+      // Transition complete, initialize main app
+      birthDate = StartingPage.getSavedBirthDate();
+      if (birthDate) {
+        calculateAgeAndWeeks();
+        showStartingPage = false;
+        weeks = [];
+        initializeMainApp();
+      }
+    }
+    
     // Draw mouse trail on top (even on starting page, but it will be cleared by update)
     if (mouseTrail) {
       mouseTrail.display(showStartingPage);
@@ -247,15 +265,13 @@ function draw() {
   // Check if modal is open
   let modalOpen = isModalOpen();
 
-  let anyHoveredThisFrame = false;
+  // Create today date once per frame (used by multiple components)
+  let today = new Date();
 
   // Only check hover states if modal is NOT open
   if (!modalOpen) {
-  // This loop updates hover states and checks if *any* circle is hovered
-  for (let week of weeks) {
-    if (week.checkHover()) {
-      anyHoveredThisFrame = true;
-      }
+    for (let week of weeks) {
+      week.checkHover();
     }
   } else {
     // If modal is open, clear all hover states to prevent hover effects
@@ -264,9 +280,9 @@ function draw() {
     }
   }
 
-  // Draw all circles
+  // Draw all circles (pass today to avoid creating it 52 times)
   for (let week of weeks) {
-    week.display(currentWeekIndex, currentDisplayYear, birthDate);
+    week.display(currentWeekIndex, currentDisplayYear, birthDate, today);
   }
 
   // Draw mouse trail on top of everything
@@ -275,8 +291,9 @@ function draw() {
   }
   
   // Update and display goal countdown (only when not on starting page)
+  // Pass today to avoid creating it again
   if (!showStartingPage && goalCountdown && birthDate) {
-    goalCountdown.update(birthDate, currentDisplayYear, currentWeekIndex);
+    goalCountdown.update(birthDate, currentDisplayYear, currentWeekIndex, today);
     goalCountdown.display();
   }
 }
@@ -313,13 +330,9 @@ function isButtonClick() {
  * Handles clicks on the starting page
  */
 function handleStartingPageClick() {
-  if (startingPage.handleClick()) {
-    birthDate = StartingPage.getSavedBirthDate();
-    calculateAgeAndWeeks();
-    showStartingPage = false;
-    weeks = [];
-    initializeMainApp();
-  }
+  // Pass mouse coordinates to handleClick
+  startingPage.handleClick(mouseX, mouseY);
+  // Main app initialization happens when isComplete() returns true
 }
 
 /**
@@ -416,8 +429,7 @@ function showWeekModal(week) {
   }
   
   // Set modal title based on week type
-  let now = new Date();
-  let currentYear = now.getFullYear();
+  let currentYear = new Date().getFullYear();
   let isFutureWeek = (yearWeekInfo.year > currentYear) || 
                      (yearWeekInfo.year === currentYear && yearWeekInfo.weekIndex > currentWeekIndex);
   
@@ -523,9 +535,6 @@ function showModal(modal, textInput) {
   }
 }
 
-// Keyboard shortcuts removed - use the music toggle button instead
-
-// Audio functions are now in AudioManager.js
 
 /**
  * returnToHome()
@@ -541,16 +550,14 @@ function returnToHome() {
   // Clear the weeks array
   weeks = [];
   
-  // Reset state variables
+  // Reset state variables (but keep birth date in localStorage)
   birthDate = null;
   userAge = 0;
   weeksLived = 0;
   showStartingPage = true;
   
-  // Clear the saved birth date from localStorage so user can enter a new one
-  localStorage.removeItem('userBirthDate');
-  
-  // Re-initialize the starting page
+  // Don't clear the saved birth date - allow user to re-enter if they want
+  // Reset starting page to show the intro sequence again
   startingPage = new StartingPage();
 }
 
@@ -677,8 +684,6 @@ function initializeMainApp(year) {
     currentWeekIndex = -1; // No current week highlight for past/future years
   }
 
-  // Debug logging removed to prevent console spam
-
   yearData = loadData(year);
 
   let weekID = 0;
@@ -692,6 +697,9 @@ function initializeMainApp(year) {
   let headerOffset = windowWidth < 600 ? 50 : windowWidth < 900 ? 70 : 80;
   let startY = (height - gridHeight) / 2 + headerOffset; // Offset for header
 
+  // Reuse now as today (same value, no need to create new Date)
+  let today = now;
+
   // Loop through 7 and 8rows
   for (let r = 0; r < numRows; r++) {
     let y = startY + r * ySpacing;
@@ -704,11 +712,10 @@ function initializeMainApp(year) {
       let dataForThisWeek = yearData[weekID];
       let weeksSinceBirth = getWeeksSinceBirth(weekID, year);
       let newWeek = new WeekCircle(x, y, circleSize, weekID, weeksSinceBirth, dataForThisWeek);
-      
+
       // Calculate and cache state once when circle is created
-      let today = new Date();
       newWeek.updateState(year, birthDate, today);
-      
+
       weeks.push(newWeek);
       weekID++;
     }
@@ -736,6 +743,27 @@ function windowResized() {
 }
 
 /**
+ * getOrdinalSuffix()
+ * Returns the ordinal suffix (st, nd, rd, th) for a number
+ * @param {number} num - The number to get the suffix for
+ * @returns {string} - The ordinal suffix
+ */
+function getOrdinalSuffix(num) {
+  // Handle special cases: 11th, 12th, 13th (not 11st, 12nd, 13rd)
+  let lastTwoDigits = num % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+    return 'th';
+  }
+  
+  // Handle regular cases based on last digit
+  let lastDigit = num % 10;
+  if (lastDigit === 1) return 'st';
+  if (lastDigit === 2) return 'nd';
+  if (lastDigit === 3) return 'rd';
+  return 'th';
+}
+
+/**
  * drawHeader()
  * Draws the header showing age and weeks lived, and current year
  */
@@ -756,11 +784,15 @@ function drawHeader() {
     let topMargin = windowWidth < 600 ? 20 : windowWidth < 900 ? 40 : 60;
     let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 55);
     
-    text(`You are ${userAge} years old. You have lived for ${weeksLived.toLocaleString()} weeks`, 
+    // Format week number with ordinal suffix and comma formatting
+    let weekFormatted = weeksLived.toLocaleString();
+    let weekOrdinal = weekFormatted + getOrdinalSuffix(weeksLived);
+    text(`You are ${userAge} years old. This is your ${weekOrdinal} week.`, 
           width / 2, topMargin);
     
     // Show current year being displayed
     if (currentDisplayYear) {
+      textStyle(BOLD);
       textSize(yearTextSize);
       let yearText = `Year ${currentDisplayYear}`;
       text(yearText, width / 2, yearMargin);

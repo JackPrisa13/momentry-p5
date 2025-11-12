@@ -212,3 +212,15 @@ function getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate) {
   };
 }
 
+/**
+ * normalizeDateToStartOfDay()
+ * Normalizes a date to the start of the day (00:00:00)
+ * @param {Date} date - The date to normalize
+ * @returns {Date} - New date object normalized to start of day
+ */
+function normalizeDateToStartOfDay(date) {
+  let normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
