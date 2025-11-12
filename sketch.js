@@ -735,10 +735,34 @@ function windowResized() {
   // Recalculate responsive sizes
   calculateResponsiveSizes();
   
-  // Rebuild the grid if the app is initialized
+  // Update existing circles if the app is initialized
   if (!showStartingPage && weeks.length > 0) {
-    weeks = [];
-    initializeMainApp(currentDisplayYear);
+    // Calculate new grid layout
+    let gridWidth = 8 * xSpacing;
+    let gridHeight = 7 * ySpacing;
+    let startX = (width - gridWidth) / 2 + (xSpacing / 2);
+    
+    // Responsive header offset
+    let headerOffset = windowWidth < 600 ? 50 : windowWidth < 900 ? 70 : 80;
+    let startY = (height - gridHeight) / 2 + headerOffset;
+    
+    // Update each circle's position and size
+    let weekID = 0;
+    for (let r = 0; r < numRows; r++) {
+      let y = startY + r * ySpacing;
+      let isEvenRow = (r % 2 === 0);
+      let numCols = isEvenRow ? 7 : 8;
+      let xOffset = isEvenRow ? xSpacing / 2 : 0;
+
+      for (let c = 0; c < numCols; c++) {
+        let x = startX + xOffset + c * xSpacing;
+        if (weekID < weeks.length) {
+          // Update existing circle's layout
+          weeks[weekID].updateLayout(x, y, circleSize);
+        }
+        weekID++;
+      }
+    }
   }
 }
 

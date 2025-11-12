@@ -203,6 +203,23 @@ class WeekCircle {
     }
     
     /**
+     * updateLayout()
+     * Updates the circle's position and size based on new layout parameters
+     * Used for window resize optimization - avoids recreating all circles
+     * @param {number} newX - New x position
+     * @param {number} newY - New y position
+     * @param {number} newSize - New base size
+     */
+    updateLayout(newX, newY, newSize) {
+        this.x = newX;
+        this.y = newY;
+        this.baseSize = newSize;
+        // Reset current size to match new base size
+        this.currentSize = newSize;
+        this.targetSize = newSize;
+    }
+    
+    /**
      * drawWeekNumber()
      * Draws the week number text on hover or for current week
      * @param {number} currentWeekIndex - The current week index

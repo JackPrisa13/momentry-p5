@@ -85,23 +85,29 @@ function loadData(year) {
     // First, try to migrate old data format (stored without year key)
     let oldData = localStorage.getItem('momentryData');
     if (oldData) {
-        let parsedData = JSON.parse(oldData);
-        
-        // Check if migration is needed (old format detection)
-        if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
-            parsedData = migrateOldDataFormat(parsedData);
-        }
-        
-        // Save to year-specific key (use current year as default for old data)
-        let currentYear = new Date().getFullYear();
-        saveData(parsedData, currentYear);
-        
-        // Remove old key
-        localStorage.removeItem('momentryData');
-        
-        // If requested year is current year, return migrated data
-        if (year === currentYear) {
-            return parsedData;
+        try {
+            let parsedData = JSON.parse(oldData);
+            
+            // Check if migration is needed (old format detection)
+            if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
+                parsedData = migrateOldDataFormat(parsedData);
+            }
+            
+            // Save to year-specific key (use current year as default for old data)
+            let currentYear = new Date().getFullYear();
+            saveData(parsedData, currentYear);
+            
+            // Remove old key
+            localStorage.removeItem('momentryData');
+            
+            // If requested year is current year, return migrated data
+            if (year === currentYear) {
+                return parsedData;
+            }
+        } catch (error) {
+            console.error('Error parsing old data format:', error);
+            // Clear corrupted data
+            localStorage.removeItem('momentryData');
         }
     }
     
@@ -110,17 +116,23 @@ function loadData(year) {
     let savedData = localStorage.getItem(storageKey);
 
     if (savedData) {
-      // If we found data, parse it and return it
-        let parsedData = JSON.parse(savedData);
-        
-        // Check if migration is needed (old format detection)
-        if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
-            parsedData = migrateOldDataFormat(parsedData);
-            // Save migrated data
-            saveData(parsedData, year);
+        try {
+            // If we found data, parse it and return it
+            let parsedData = JSON.parse(savedData);
+            
+            // Check if migration is needed (old format detection)
+            if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
+                parsedData = migrateOldDataFormat(parsedData);
+                // Save migrated data
+                saveData(parsedData, year);
+            }
+            
+            return parsedData;
+        } catch (error) {
+            console.error(`Error parsing data for year ${year}:`, error);
+            // Clear corrupted data and return empty structure
+            localStorage.removeItem(storageKey);
         }
-        
-        return parsedData;
     } else {
       // If no data, create a brand new empty structure
         let newData = [];
