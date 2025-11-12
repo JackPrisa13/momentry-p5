@@ -8,6 +8,60 @@
  * - birthDate: The user's birth date (needed for mapping weeks since birth to year/weekIndex)
  */
 
+// Holds the current image (base64 data URL) selected in the modal form
+let modalImageDataURL = null; // For image edit section
+let modalImageDataURLNew = null; // For new memory input section
+
+/**
+ * resizeImage()
+ * Resizes an image to a maximum dimension while maintaining aspect ratio
+ * @param {string} dataURL - Base64 image data URL
+ * @param {number} maxDimension - Maximum width or height in pixels (default: 1080)
+ * @returns {Promise<string>} - Resized image as base64 data URL
+ */
+function resizeImage(dataURL, maxDimension = 1080) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = function() {
+      // Calculate new dimensions
+      let width = img.width;
+      let height = img.height;
+      
+      // If image is smaller than max, return original
+      if (width <= maxDimension && height <= maxDimension) {
+        resolve(dataURL);
+        return;
+      }
+      
+      // Calculate scaling factor
+      let scale = Math.min(maxDimension / width, maxDimension / height);
+      let newWidth = Math.round(width * scale);
+      let newHeight = Math.round(height * scale);
+      
+      // Create canvas and resize
+      const canvas = document.createElement('canvas');
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // Use high-quality image rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
+      // Draw resized image
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+      
+      // Convert to data URL (use JPEG for smaller file size, quality 0.9)
+      const resizedDataURL = canvas.toDataURL('image/jpeg', 0.9);
+      resolve(resizedDataURL);
+    };
+    img.onerror = function() {
+      reject(new Error('Failed to load image'));
+    };
+    img.src = dataURL;
+  });
+}
+
 /**
  * setupModalListeners()
  * Sets up event listeners for the modal Save and Cancel buttons
@@ -16,17 +70,227 @@ function setupModalListeners() {
   // Cancel button
   let cancelBtn = document.getElementById('modal-cancel-btn');
   cancelBtn.addEventListener('click', function() {
-    hideModal();
+    // If editing, return to view mode; otherwise close modal
+    if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
+      // Get the memory to restore its date before clearing
+      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+      let memoryDate = null;
+      if (yearWeekInfo) {
+        let yearDataForWeek = loadData(yearWeekInfo.year);
+        if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
+          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === editingMemoryId);
+          if (memory) {
+            memoryDate = memory.date;
+          }
+        }
+      }
+      
+      // Clear form fields (title, text, image) - but preserve date to avoid invalid state
+      const titleInput = document.getElementById('memory-title-input');
+      const textInput = document.getElementById('modal-text-input');
+      if (titleInput) titleInput.value = '';
+      if (textInput) textInput.value = '';
+      
+      // Clear image preview and inputs
+      modalImageDataURL = undefined; // Explicitly set to undefined for editing
+      const imagePreviewNew = document.getElementById('memory-image-preview-new');
+      const imageInputNew = document.getElementById('memory-image-input-new');
+      const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
+      if (imagePreviewNew) {
+        imagePreviewNew.removeAttribute('src');
+        imagePreviewNew.style.display = 'none';
+      }
+      if (imageInputNew) imageInputNew.value = '';
+      if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
+      
+      // Restore the memory's date to avoid invalid date state
+      const dateInput = document.getElementById('memory-date-input');
+      if (dateInput && memoryDate) {
+        dateInput.value = memoryDate;
+      }
+      
+      // Return to view mode showing the memory being edited
+      viewMemory(selectedWeeksSinceBirth, editingMemoryId);
+    } else {
+      // Not editing, just close the modal
+      hideModal();
+    }
   });
+  
+  // Image input handlers (for image edit section)
+  const imageInput = document.getElementById('memory-image-input');
+  const imagePreview = document.getElementById('memory-image-preview');
+  const imageClearBtn = document.getElementById('memory-image-clear-btn');
+
+  if (imageInput) {
+    imageInput.addEventListener('change', function(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        return;
+      }
+      
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('Image file is too large. Maximum size is 10MB. Please choose a smaller image.');
+        imageInput.value = ''; // Clear the input
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        // Resize image to max 1080px on longest side
+        resizeImage(evt.target.result, 1080)
+          .then(function(resizedDataURL) {
+            modalImageDataURL = resizedDataURL;
+            if (imagePreview) {
+              imagePreview.src = modalImageDataURL;
+              imagePreview.style.display = 'block';
+            }
+            if (imageClearBtn) {
+              imageClearBtn.style.display = 'inline-block';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error resizing image:', error);
+            alert('Error processing image. Please try again.');
+            imageInput.value = '';
+          });
+      };
+      reader.onerror = function() {
+        alert('Error reading image file. Please try again.');
+        imageInput.value = '';
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (imageClearBtn) {
+    imageClearBtn.addEventListener('click', function() {
+      modalImageDataURL = null;
+      if (imagePreview) {
+        imagePreview.removeAttribute('src');
+        imagePreview.style.display = 'none';
+      }
+      if (imageInput) {
+        imageInput.value = '';
+      }
+      imageClearBtn.style.display = 'none';
+    });
+  }
+
+  // Image input handlers (for input section - used for both new and editing)
+  const imageInputNew = document.getElementById('memory-image-input-new');
+  const imagePreviewNew = document.getElementById('memory-image-preview-new');
+  const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
+
+  if (imageInputNew) {
+    imageInputNew.addEventListener('change', function(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        return;
+      }
+      
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('Image file is too large. Maximum size is 10MB. Please choose a smaller image.');
+        imageInputNew.value = ''; // Clear the input
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        // Resize image to max 1080px on longest side
+        resizeImage(evt.target.result, 1080)
+          .then(function(resizedDataURL) {
+            // Use the same variable for both new and editing
+            if (editingMemoryId !== null) {
+              modalImageDataURL = resizedDataURL; // For editing
+            } else {
+              modalImageDataURLNew = resizedDataURL; // For new memory
+            }
+            if (imagePreviewNew) {
+              imagePreviewNew.src = resizedDataURL;
+              imagePreviewNew.style.display = 'block';
+            }
+            if (imageClearBtnNew) {
+              imageClearBtnNew.style.display = 'inline-block';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error resizing image:', error);
+            alert('Error processing image. Please try again.');
+            imageInputNew.value = '';
+          });
+      };
+      reader.onerror = function() {
+        alert('Error reading image file. Please try again.');
+        imageInputNew.value = '';
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (imageClearBtnNew) {
+    imageClearBtnNew.addEventListener('click', function() {
+      if (editingMemoryId !== null) {
+        modalImageDataURL = null; // null means "remove image" when editing
+      } else {
+        modalImageDataURLNew = null; // For new memory
+      }
+      if (imagePreviewNew) {
+        imagePreviewNew.removeAttribute('src');
+        imagePreviewNew.style.display = 'none';
+      }
+      if (imageInputNew) {
+        imageInputNew.value = '';
+      }
+      imageClearBtnNew.style.display = 'none';
+    });
+  }
+  
+  // View memory close button
+  let closeViewBtn = document.getElementById('memory-close-view-btn');
+  if (closeViewBtn) {
+    closeViewBtn.addEventListener('click', function() {
+      // Return to list view with all memories
+      showMemoryInputSection(false); // Show list when closing view
+      editingMemoryId = null;
+      // Refresh the memories list to show updated data
+      if (selectedWeeksSinceBirth !== null) {
+        displayMemoriesList(selectedWeeksSinceBirth);
+      }
+    });
+  }
+
+  // Edit content button (title, text, date)
+  let editContentBtn = document.getElementById('memory-edit-content-btn');
+  if (editContentBtn) {
+    editContentBtn.addEventListener('click', function() {
+      if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
+        startEditingMemory(selectedWeeksSinceBirth, editingMemoryId);
+      }
+    });
+  }
+
+  // Note: Edit Image button removed - editing is now combined with content editing
   
   // Save button
   let saveBtn = document.getElementById('modal-save-btn');
   saveBtn.addEventListener('click', function() {
     if (selectedWeeksSinceBirth !== null && birthDate) {
+      let titleInput = document.getElementById('memory-title-input');
       let textInput = document.getElementById('modal-text-input');
       let dateInput = document.getElementById('memory-date-input');
+      let title = titleInput ? titleInput.value.trim() : '';
       let text = textInput.value.trim();
       let date = dateInput.value;
+      
+      if (!title) {
+        alert('Please enter a title.');
+        return;
+      }
       
       if (!text) {
         alert('Please enter a memory or goal.');
@@ -55,48 +319,32 @@ function setupModalListeners() {
       }
       
       if (editingMemoryId !== null) {
-        // Editing existing memory
-        editMemory(selectedWeeksSinceBirth, editingMemoryId, text, date);
-        // Keep modal open, refresh list, and reset to "add new" mode
-        displayMemoriesList(selectedWeeksSinceBirth);
+        // Editing existing memory (title, text, date, and image)
+        // modalImageDataURL is set when user selects/changes image during edit
+        let savedMemoryId = editingMemoryId; // Store ID before clearing
+        editMemory(selectedWeeksSinceBirth, editingMemoryId, title, text, date, modalImageDataURL);
         
         // Clear editing state
         editingMemoryId = null;
+        modalImageDataURL = null; // Clear image data after saving
         
-        // Reset save button text
-        let saveBtn = document.getElementById('modal-save-btn');
-        if (saveBtn) {
-          saveBtn.textContent = 'Add';
-        }
+        // Clear form and reset to initial state
+        resetFormToInitialState({ resetDate: true, resetButtons: true, clearImageData: true });
         
-        // Clear form
-        textInput.value = '';
-        
-        // Reset date to default within the week range
-        let today = new Date();
-        let defaultDate = weekRange.startDate;
-        if (today >= weekRange.startDate && today <= weekRange.endDate) {
-          defaultDate = today;
-        }
-        dateInput.value = formatDateForInput(defaultDate);
-        
-        textInput.focus();
+        // Return to view mode showing the edited memory
+        viewMemory(selectedWeeksSinceBirth, savedMemoryId);
       } else {
-        // Adding new memory
-        addMemory(selectedWeeksSinceBirth, text, date);
+        // Adding new memory (with optional image)
+        addMemory(selectedWeeksSinceBirth, title, text, date, modalImageDataURLNew);
         // Keep modal open, just refresh list and clear form
         displayMemoriesList(selectedWeeksSinceBirth);
-        textInput.value = '';
         
-        // Reset date to default within the week range
-        let today = new Date();
-        let defaultDate = weekRange.startDate;
-        if (today >= weekRange.startDate && today <= weekRange.endDate) {
-          defaultDate = today;
-        }
-        dateInput.value = formatDateForInput(defaultDate);
+        // Reset form to initial state
+        resetFormToInitialState({ resetDate: true, resetButtons: false, clearImageData: true });
         
-        textInput.focus();
+        // Focus on text input for next entry
+        const textInput = document.getElementById('modal-text-input');
+        if (textInput) textInput.focus();
       }
     }
   });
@@ -119,6 +367,69 @@ function setupModalListeners() {
 }
 
 /**
+ * resetFormToInitialState()
+ * Resets all form fields to their initial state
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.resetDate - If true, reset date to default within week range
+ * @param {boolean} options.resetButtons - If true, reset button texts to "Add" and "Close"
+ * @param {boolean} options.clearImageData - If true, clear image data variables
+ */
+function resetFormToInitialState(options = {}) {
+  const {
+    resetDate = false,
+    resetButtons = false,
+    clearImageData = true
+  } = options;
+  
+  // Clear form inputs
+  const titleInput = document.getElementById('memory-title-input');
+  const textInput = document.getElementById('modal-text-input');
+  const dateInput = document.getElementById('memory-date-input');
+  
+  if (titleInput) titleInput.value = '';
+  if (textInput) textInput.value = '';
+  
+  // Reset date if requested
+  if (resetDate && dateInput && selectedWeeksSinceBirth !== null && birthDate) {
+    let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+    if (yearWeekInfo) {
+      let weekRange = getWeekDateRange(yearWeekInfo.weekIndex, yearWeekInfo.year);
+      // Always use the first day of the week (Monday) as default
+      let defaultDate = weekRange.startDate;
+      dateInput.value = formatDateForInput(defaultDate);
+    }
+  } else if (dateInput) {
+    dateInput.value = '';
+  }
+  
+  // Clear image preview and inputs
+  const imagePreviewNew = document.getElementById('memory-image-preview-new');
+  const imageInputNew = document.getElementById('memory-image-input-new');
+  const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
+  
+  if (imagePreviewNew) {
+    imagePreviewNew.removeAttribute('src');
+    imagePreviewNew.style.display = 'none';
+  }
+  if (imageInputNew) imageInputNew.value = '';
+  if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
+  
+  // Clear image data variables if requested
+  if (clearImageData) {
+    modalImageDataURL = null;
+    modalImageDataURLNew = null;
+  }
+  
+  // Reset button texts if requested
+  if (resetButtons) {
+    const saveBtn = document.getElementById('modal-save-btn');
+    const cancelBtn = document.getElementById('modal-cancel-btn');
+    if (saveBtn) saveBtn.textContent = 'Add';
+    if (cancelBtn) cancelBtn.textContent = 'Close';
+  }
+}
+
+/**
  * hideModal()
  * Hides the modal and re-enables canvas interaction
  */
@@ -135,22 +446,27 @@ function hideModal() {
     canvas.style.pointerEvents = 'auto';
   }
   
-  // Clear form inputs
-  let textInput = document.getElementById('modal-text-input');
-  if (textInput) {
-    textInput.value = '';
-  }
+  // Reset form to initial state
+  resetFormToInitialState({ resetDate: false, resetButtons: true, clearImageData: true });
   
-  let dateInput = document.getElementById('memory-date-input');
-  if (dateInput) {
-    dateInput.value = '';
-  }
+  // Also clear the old image edit section controls (if they exist)
+  const imageInput = document.getElementById('memory-image-input');
+  const imagePreview = document.getElementById('memory-image-preview');
+  const imageClearBtn = document.getElementById('memory-image-clear-btn');
   
-  // Reset save button text
-  let saveBtn = document.getElementById('modal-save-btn');
-  if (saveBtn) {
-    saveBtn.textContent = 'Add';
+  if (imagePreview) {
+    imagePreview.removeAttribute('src');
+    imagePreview.style.display = 'none';
   }
+  if (imageInput) {
+    imageInput.value = '';
+  }
+  if (imageClearBtn) {
+    imageClearBtn.style.display = 'none';
+  }
+
+  // Show input section, hide view and image edit sections
+  showMemoryInputSection(false);
   
   selectedWeeksSinceBirth = null;
   editingMemoryId = null;
@@ -206,10 +522,12 @@ function sortMemoriesByDate(memories) {
  * addMemory()
  * Adds a new memory to the specified week
  * @param {number} weeksSinceBirth - The weeks since birth for this week (universal identifier)
+ * @param {string} title - The memory title
  * @param {string} text - The memory text
  * @param {string} date - The memory date (YYYY-MM-DD)
+ * @param {string|null} imageDataURL - Optional image data URL
  */
-function addMemory(weeksSinceBirth, text, date) {
+function addMemory(weeksSinceBirth, title, text, date, imageDataURL) {
   let result = getYearDataForWeek(weeksSinceBirth);
   if (!result) return;
   
@@ -221,9 +539,11 @@ function addMemory(weeksSinceBirth, text, date) {
   
   let newMemory = {
     id: generateMemoryId(),
+    title: title,
     text: text,
     date: date,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    imageData: imageDataURL || null
   };
   
   yearData[yearWeekInfo.weekIndex].memories.push(newMemory);
@@ -237,10 +557,12 @@ function addMemory(weeksSinceBirth, text, date) {
  * Edits an existing memory
  * @param {number} weeksSinceBirth - The weeks since birth for this week (universal identifier)
  * @param {string} memoryId - The ID of the memory to edit
- * @param {string} text - The memory text
- * @param {string} date - The memory date (YYYY-MM-DD)
+ * @param {string|null} title - The memory title (null to skip update)
+ * @param {string|null} text - The memory text (null to skip update)
+ * @param {string|null} date - The memory date (null to skip update)
+ * @param {string|null|undefined} imageDataURL - Image data URL (undefined to skip, null to clear)
  */
-function editMemory(weeksSinceBirth, memoryId, text, date) {
+function editMemory(weeksSinceBirth, memoryId, title, text, date, imageDataURL) {
   let result = getYearDataForWeek(weeksSinceBirth);
   if (!result) return;
   
@@ -253,10 +575,22 @@ function editMemory(weeksSinceBirth, memoryId, text, date) {
   let memory = yearData[yearWeekInfo.weekIndex].memories.find(m => m.id === memoryId);
   if (!memory) return;
   
-  memory.text = text;
-  memory.date = date;
-  memory.timestamp = new Date().toISOString();
+  // Only update fields that are provided (not null)
+  if (title !== null && title !== undefined) {
+    memory.title = title;
+  }
+  if (text !== null && text !== undefined) {
+    memory.text = text;
+  }
+  if (date !== null && date !== undefined) {
+    memory.date = date;
+  }
+  // Only update image if argument is explicitly provided (undefined = skip, null = clear)
+  if (imageDataURL !== undefined) {
+    memory.imageData = imageDataURL;
+  }
   
+  memory.timestamp = new Date().toISOString();
   sortMemoriesByDate(yearData[yearWeekInfo.weekIndex].memories);
   saveYearDataAndRefresh(yearData, yearWeekInfo.year);
 }
@@ -328,6 +662,7 @@ function displayMemoriesList(weeksSinceBirth) {
   sortedMemories.forEach(memory => {
     let memoryItem = document.createElement('div');
     memoryItem.className = 'memory-item';
+    memoryItem.style.cursor = 'pointer';
     
     // Format date for display
     let displayDate = new Date(memory.date).toLocaleDateString('en-US', {
@@ -336,34 +671,162 @@ function displayMemoriesList(weeksSinceBirth) {
       day: 'numeric'
     });
     
+    // Get title (fallback to first part of text if no title)
+    let displayTitle = memory.title || (memory.text ? memory.text.substring(0, 50) + (memory.text.length > 50 ? '...' : '') : 'Untitled');
+    
     memoryItem.innerHTML = `
       <div class="memory-item-header">
+        <span class="memory-item-title" style="font-weight: bold; font-size: 1.1em;">${escapeHtml(displayTitle)}</span>
         <span class="memory-item-date">${displayDate}</span>
-        <div class="memory-item-actions">
-          <button class="memory-edit-btn" data-memory-id="${memory.id}">Edit</button>
-          <button class="memory-delete-btn" data-memory-id="${memory.id}">Delete</button>
-        </div>
       </div>
-      <div class="memory-item-text">${escapeHtml(memory.text)}</div>
     `;
+    
+    // Make entire item clickable to view
+    memoryItem.addEventListener('click', function() {
+      viewMemory(weeksSinceBirth, memory.id);
+    });
     
     memoriesList.appendChild(memoryItem);
   });
+}
+
+/**
+ * viewMemory()
+ * Displays a memory in view mode
+ * @param {number} weeksSinceBirth - The weeks since birth for this week
+ * @param {string} memoryId - The ID of the memory to view
+ */
+function viewMemory(weeksSinceBirth, memoryId) {
+  if (!birthDate) {
+    console.error('Cannot view memory: birthDate not set');
+    return;
+  }
   
-  // Add event listeners for edit and delete buttons
-  memoriesList.querySelectorAll('.memory-edit-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      let memoryId = btn.getAttribute('data-memory-id');
-      startEditingMemory(weeksSinceBirth, memoryId);
-    });
-  });
+  // Convert weeks since birth to year and week index
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate);
+  if (!yearWeekInfo) {
+    console.error('Could not determine year and week index for weeks since birth:', weeksSinceBirth);
+    return;
+  }
   
-  memoriesList.querySelectorAll('.memory-delete-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      let memoryId = btn.getAttribute('data-memory-id');
-      deleteMemory(weeksSinceBirth, memoryId);
-    });
-  });
+  // Load the correct year's data
+  let yearDataForWeek = loadData(yearWeekInfo.year);
+  
+  if (!yearDataForWeek[yearWeekInfo.weekIndex].memories) {
+    return;
+  }
+  
+  let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === memoryId);
+  if (!memory) {
+    return;
+  }
+  
+  // Set editingMemoryId so we can edit the image later
+  editingMemoryId = memoryId;
+  
+  // Hide input section and memories list, show view section
+  let inputSection = document.getElementById('memory-input-section');
+  let viewSection = document.getElementById('memory-view-section');
+  let imageEditSection = document.getElementById('image-edit-section');
+  let memoriesListContainer = document.getElementById('memories-list-container');
+  
+  if (inputSection) inputSection.style.display = 'none';
+  if (imageEditSection) imageEditSection.style.display = 'none';
+  if (memoriesListContainer) memoriesListContainer.style.display = 'none'; // Hide the list when viewing
+  if (viewSection) {
+    viewSection.style.display = 'block';
+    
+    // Populate view with memory data
+    let viewTitle = document.getElementById('memory-view-title');
+    let viewDate = document.getElementById('memory-view-date');
+    let viewText = document.getElementById('memory-view-text');
+    let viewImageWrapper = document.getElementById('memory-view-image-wrapper');
+    let viewImage = document.getElementById('memory-view-image');
+    
+    if (viewTitle) {
+      viewTitle.textContent = memory.title || 'Untitled';
+    }
+    
+    if (viewDate) {
+      let displayDate = new Date(memory.date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      viewDate.textContent = displayDate;
+    }
+    
+    if (viewText) {
+      viewText.textContent = memory.text || '';
+    }
+    
+    // Show image if it exists
+    if (memory.imageData && viewImage && viewImageWrapper) {
+      viewImage.src = memory.imageData;
+      viewImageWrapper.style.display = 'flex'; // Use flex to center the image
+    } else if (viewImageWrapper) {
+      viewImageWrapper.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * showMemoryInputSection()
+ * Shows the input section and hides view/image edit sections
+ * @param {boolean} hideList - If true, hide the memories list (e.g., when editing)
+ */
+function showMemoryInputSection(hideList) {
+  let inputSection = document.getElementById('memory-input-section');
+  let viewSection = document.getElementById('memory-view-section');
+  let imageEditSection = document.getElementById('image-edit-section');
+  let memoriesListContainer = document.getElementById('memories-list-container');
+  
+  if (inputSection) inputSection.style.display = 'block';
+  if (viewSection) viewSection.style.display = 'none';
+  if (imageEditSection) imageEditSection.style.display = 'none';
+  // Hide list when editing, show when adding new
+  if (memoriesListContainer) {
+    memoriesListContainer.style.display = hideList ? 'none' : 'block';
+  }
+}
+
+/**
+ * showImageEditSection()
+ * Shows the image edit section and hides other sections
+ */
+function showImageEditSection() {
+  let inputSection = document.getElementById('memory-input-section');
+  let viewSection = document.getElementById('memory-view-section');
+  let imageEditSection = document.getElementById('image-edit-section');
+  let memoriesListContainer = document.getElementById('memories-list-container');
+  
+  if (inputSection) inputSection.style.display = 'none';
+  if (viewSection) viewSection.style.display = 'none';
+  if (memoriesListContainer) memoriesListContainer.style.display = 'none'; // Hide list when editing image
+  if (imageEditSection) {
+    imageEditSection.style.display = 'block';
+    
+    // Load current image if it exists
+    if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
+      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+      if (yearWeekInfo) {
+        let yearDataForWeek = loadData(yearWeekInfo.year);
+        if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
+          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === editingMemoryId);
+          if (memory && memory.imageData) {
+            modalImageDataURL = memory.imageData;
+            const imagePreview = document.getElementById('memory-image-preview');
+            const imageClearBtn = document.getElementById('memory-image-clear-btn');
+            if (imagePreview) {
+              imagePreview.src = memory.imageData;
+              imagePreview.style.display = 'block';
+            }
+            if (imageClearBtn) imageClearBtn.style.display = 'inline-block';
+          }
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -405,11 +868,22 @@ function startEditingMemory(weeksSinceBirth, memoryId) {
     saveBtn.textContent = 'Save';
   }
   
+  // Update cancel button text to "Cancel" when editing
+  let cancelBtn = document.getElementById('modal-cancel-btn');
+  if (cancelBtn) {
+    cancelBtn.textContent = 'Cancel';
+  }
+  
+  let titleInput = document.getElementById('memory-title-input');
   let textInput = document.getElementById('modal-text-input');
   let dateInput = document.getElementById('memory-date-input');
   
+  if (titleInput) {
+    titleInput.value = memory.title || '';
+  }
+  
   if (textInput) {
-    textInput.value = memory.text;
+    textInput.value = memory.text || '';
   }
   
   if (dateInput) {
@@ -435,12 +909,45 @@ function startEditingMemory(weeksSinceBirth, memoryId) {
     }
   }
   
+  // Load current image into preview if it exists
+  const imagePreviewNew = document.getElementById('memory-image-preview-new');
+  const imageInputNew = document.getElementById('memory-image-input-new');
+  const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
+  
+  // Reset modalImageDataURL to null initially (user can change it by selecting a new image)
+  modalImageDataURL = undefined; // undefined means "don't change", null means "remove"
+  
+  if (memory.imageData && imagePreviewNew) {
+    // Show existing image in preview
+    imagePreviewNew.src = memory.imageData;
+    imagePreviewNew.style.display = 'block';
+    if (imageClearBtnNew) {
+      imageClearBtnNew.style.display = 'inline-block';
+    }
+  } else {
+    // No existing image, clear preview
+    if (imagePreviewNew) {
+      imagePreviewNew.removeAttribute('src');
+      imagePreviewNew.style.display = 'none';
+    }
+    if (imageInputNew) imageInputNew.value = '';
+    if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
+  }
+  
+  // Show input section and hide view section (hide list when editing)
+  showMemoryInputSection(true);
+  
   // Scroll to input section
   let inputSection = document.getElementById('memory-input-section');
   if (inputSection) {
     inputSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    textInput.focus();
-    textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+    if (titleInput) {
+      titleInput.focus();
+      titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
+    } else if (textInput) {
+      textInput.focus();
+      textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+    }
   }
 }
 

@@ -248,6 +248,19 @@ body:has(#entry-modal.show) canvas {
   font-size: 14px;
 }
 
+/* Center image previews and view images */
+#memory-image-preview-wrapper,
+#memory-image-preview-wrapper-new,
+#memory-view-image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#memory-view-image-wrapper {
+  margin-top: 16px;
+}
+
 .modal-buttons {
   display: flex;
   gap: 12px;
@@ -300,11 +313,35 @@ body:has(#entry-modal.show) canvas {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 200px;
+  max-height: 160px; /* Show approximately 3 memory items */
   overflow-y: auto;
   padding: 10px;
   background-color: #F5F4E3;
   border-radius: 8px;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #BFC0B1 #F5F4E3;
+}
+
+/* Webkit scrollbar styling for Chrome/Safari */
+#memories-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+#memories-list::-webkit-scrollbar-track {
+  background: #F5F4E3;
+  border-radius: 4px;
+}
+
+#memories-list::-webkit-scrollbar-thumb {
+  background: #BFC0B1;
+  border-radius: 4px;
+}
+
+#memories-list::-webkit-scrollbar-thumb:hover {
+  background: #9FA0A1;
 }
 
 .memory-item {

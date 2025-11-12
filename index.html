@@ -45,17 +45,57 @@
         
         <!-- Add/Edit Memory Section -->
         <div id="memory-input-section">
+          <label for="memory-title-input">Title:</label>
+          <input type="text" id="memory-title-input" placeholder="Enter a title...">
+          
           <label for="memory-date-input">Date:</label>
           <input type="date" id="memory-date-input">
           
           <label for="modal-text-input">Memory/Goal:</label>
           <textarea id="modal-text-input" placeholder="Enter your memory or goal..."></textarea>
           
-          <div id="image-upload-area">Image upload coming soon</div>
+          <div id="image-upload-area-input">
+            <label for="memory-image-input-new">Image (optional):</label>
+            <input type="file" id="memory-image-input-new" accept="image/*">
+            <div id="memory-image-preview-wrapper-new" style="margin-top: 8px;">
+              <img id="memory-image-preview-new" alt="Preview" style="display:none; max-width: 100%; max-height: 160px; border-radius: 8px;" />
+            </div>
+            <button id="memory-image-clear-btn-new" type="button" style="display:none; margin-top: 8px;">Remove image</button>
+          </div>
           
           <div class="modal-buttons">
             <button id="modal-save-btn">Save</button>
-            <button id="modal-cancel-btn">Cancel</button>
+            <button id="modal-cancel-btn">Close</button>
+          </div>
+        </div>
+        
+        <!-- View Memory Section (hidden by default) -->
+        <div id="memory-view-section" style="display:none;">
+          <h3 id="memory-view-title"></h3>
+          <div id="memory-view-date" class="memory-view-date"></div>
+          <div id="memory-view-text" class="memory-view-text"></div>
+          <div id="memory-view-image-wrapper" style="display:none;">
+            <img id="memory-view-image" alt="Memory image" style="max-width: 100%; max-height: 400px; border-radius: 8px;" />
+          </div>
+          <div class="modal-buttons" style="margin-top: 20px;">
+            <button id="memory-edit-content-btn">Edit</button>
+            <button id="memory-close-view-btn">Close</button>
+          </div>
+        </div>
+        
+        <!-- Edit Image Section (hidden by default) -->
+        <div id="image-edit-section" style="display:none;">
+          <div id="image-upload-area">
+            <label for="memory-image-input">Image (optional):</label>
+            <input type="file" id="memory-image-input" accept="image/*">
+            <div id="memory-image-preview-wrapper" style="margin-top: 8px;">
+              <img id="memory-image-preview" alt="Preview" style="display:none; max-width: 100%; max-height: 160px; border-radius: 8px;" />
+            </div>
+            <button id="memory-image-clear-btn" type="button" style="display:none; margin-top: 8px;">Remove image</button>
+          </div>
+          <div class="modal-buttons" style="margin-top: 12px;">
+            <button id="memory-save-image-btn">Save Image</button>
+            <button id="memory-cancel-image-btn">Cancel</button>
           </div>
         </div>
       </div>

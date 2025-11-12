@@ -125,9 +125,7 @@ function calculateResponsiveSizes() {
 }
 
 function setup() {
-  console.log('Setup called');
   createCanvas(windowWidth, windowHeight);
-  console.log('Canvas created');
 
   // Calculate responsive sizes (after canvas is created)
   calculateResponsiveSizes();
@@ -352,6 +350,32 @@ function mousePressed() {
   userStartAudio();
   startBackgroundMusic();
   
+  // Check if a goal countdown card was clicked
+  if (goalCountdown) {
+    let clickedGoal = goalCountdown.checkClick(mouseX, mouseY);
+    if (clickedGoal) {
+      // Open the memory in view mode
+      if (typeof viewMemory === 'function' && clickedGoal.weeksSinceBirth !== undefined && clickedGoal.memoryId) {
+        // Set the selected week to open the modal
+        selectedWeeksSinceBirth = clickedGoal.weeksSinceBirth;
+        // Show the modal
+        let modal = document.getElementById('entry-modal');
+        if (modal) {
+          modal.style.display = 'flex';
+          modal.classList.add('show');
+          // Disable canvas interaction
+          let canvas = document.querySelector('canvas');
+          if (canvas) {
+            canvas.style.pointerEvents = 'none';
+          }
+        }
+        // View the specific memory
+        viewMemory(clickedGoal.weeksSinceBirth, clickedGoal.memoryId);
+        return; // Don't check for circle clicks
+      }
+    }
+  }
+  
   // Check which circle was clicked
   for (let week of weeks) {
     if (week.isBeforeBirth) continue;
@@ -363,14 +387,13 @@ function mousePressed() {
   }
 }
 
+
 /**
  * showWeekModal()
  * Sets up and displays the modal for a clicked week circle
  * @param {WeekCircle} week - The week circle that was clicked
  */
 function showWeekModal(week) {
-  console.log('Week circle clicked:', week.id, 'Weeks since birth:', week.weeksSinceBirth);
-  
   // Store weeks since birth as the universal identifier
   selectedWeeksSinceBirth = week.weeksSinceBirth;
   
@@ -421,6 +444,17 @@ function showWeekModal(week) {
   // Clear all hover states before showing modal
   clearAllHoverStates();
   
+  // Set cancel button text to "Close" when adding new (not editing)
+  let cancelBtn = document.getElementById('modal-cancel-btn');
+  if (cancelBtn) {
+    cancelBtn.textContent = 'Close';
+  }
+  
+  // Ensure input section is shown, view and image edit sections are hidden
+  if (typeof showMemoryInputSection === 'function') {
+    showMemoryInputSection();
+  }
+  
   // Show the modal
   showModal(modal, textInput);
 }
@@ -468,7 +502,7 @@ function clearAllHoverStates() {
  * showModal()
  * Displays the modal and disables canvas interaction
  * @param {HTMLElement} modal - The modal element
- * @param {HTMLElement} textInput - The text input element to focus
+ * @param {HTMLElement} textInput - The text input element (for backward compatibility)
  */
 function showModal(modal, textInput) {
   modal.style.display = 'flex';
@@ -480,8 +514,13 @@ function showModal(modal, textInput) {
     canvas.style.pointerEvents = 'none';
   }
   
-  // Focus on textarea
-  textInput.focus();
+  // Focus on title input if available, otherwise textarea
+  let titleInput = document.getElementById('memory-title-input');
+  if (titleInput) {
+    titleInput.focus();
+  } else if (textInput) {
+    textInput.focus();
+  }
 }
 
 // Keyboard shortcuts removed - use the music toggle button instead
@@ -638,10 +677,7 @@ function initializeMainApp(year) {
     currentWeekIndex = -1; // No current week highlight for past/future years
   }
 
-  console.log("Displaying year:", year);
-  console.log("Current date:", now.toDateString());
-  console.log("ISO Week number:", isoWeekInfo.weekNumber, "ISO Year:", isoWeekInfo.year);
-  console.log("Current week index (0-based):", currentWeekIndex);
+  // Debug logging removed to prevent console spam
 
   yearData = loadData(year);
 
@@ -718,7 +754,7 @@ function drawHeader() {
     
     // Responsive top margin
     let topMargin = windowWidth < 600 ? 20 : windowWidth < 900 ? 40 : 60;
-    let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 35);
+    let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 55);
     
     text(`You are ${userAge} years old. You have lived for ${weeksLived.toLocaleString()} weeks`, 
           width / 2, topMargin);
@@ -726,10 +762,7 @@ function drawHeader() {
     // Show current year being displayed
     if (currentDisplayYear) {
       textSize(yearTextSize);
-      let currentYear = new Date().getFullYear();
-      let yearText = currentDisplayYear === currentYear 
-        ? `Viewing ${currentDisplayYear}` 
-        : `Viewing ${currentDisplayYear}`;
+      let yearText = `Year ${currentDisplayYear}`;
       text(yearText, width / 2, yearMargin);
     }
     

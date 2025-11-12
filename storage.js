@@ -13,7 +13,7 @@ function saveData(data, year) {
     // Store data with year-specific key
     let storageKey = `momentryData_${year}`;
     localStorage.setItem(storageKey, JSON.stringify(data));
-    console.log(`Data saved for year ${year}!`);
+    // Debug logging removed to prevent console spam
 }
 
 /**
@@ -33,9 +33,11 @@ function migrateOldDataFormat(data) {
             migratedData.push({
                 memories: week.memory ? [{
                     id: generateMemoryId(),
+                    title: null, // No title for old format
                     text: week.memory,
                     date: new Date().toISOString().split('T')[0], // Today's date as default
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    imageData: null // No image for old format
                 }] : []
             });
         } else if (week.memories !== undefined) {
@@ -43,9 +45,11 @@ function migrateOldDataFormat(data) {
             let migratedMemories = week.memories.map(mem => {
                 return {
                     id: mem.id || generateMemoryId(),
+                    title: mem.title || null, // Title is optional
                     text: mem.text || '',
                     date: mem.date || new Date().toISOString().split('T')[0],
-                    timestamp: mem.timestamp || new Date().toISOString()
+                    timestamp: mem.timestamp || new Date().toISOString(),
+                    imageData: mem.imageData || null // Image data if exists
                 };
             });
             migratedData.push({ memories: migratedMemories });
@@ -82,12 +86,10 @@ function loadData(year) {
     // First, try to migrate old data format (stored without year key)
     let oldData = localStorage.getItem('momentryData');
     if (oldData) {
-        console.log("Found old data format, migrating to year-specific storage...");
         let parsedData = JSON.parse(oldData);
         
         // Check if migration is needed (old format detection)
         if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
-            console.log("Migrating old data format to new format...");
             parsedData = migrateOldDataFormat(parsedData);
         }
         
@@ -110,12 +112,10 @@ function loadData(year) {
 
     if (savedData) {
         // If we found data, parse it and return it
-        console.log(`Data loaded from storage for year ${year}.`);
         let parsedData = JSON.parse(savedData);
         
         // Check if migration is needed (old format detection)
         if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
-            console.log("Migrating old data format to new format...");
             parsedData = migrateOldDataFormat(parsedData);
             // Save migrated data
             saveData(parsedData, year);
@@ -124,7 +124,6 @@ function loadData(year) {
         return parsedData;
     } else {
         // If no data, create a brand new empty structure
-        console.log(`No saved data found for year ${year}. Creating new data structure.`);
         let newData = [];
         for (let i = 0; i < 52; i++) {
             // Each week is an object with an empty memories array
