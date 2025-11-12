@@ -1,50 +1,53 @@
-// --- Global Variables ---
+/**
+ * App Class
+ * Encapsulates all application state and logic
+ * Note: p5.js requires setup() and draw() to be global functions,
+ * so they delegate to this App instance
+ */
+class App {
+  constructor() {
+    // Week circles and data
+    this.weeks = [];
+    this.yearData = [];
+    
+    // Audio for hover sounds
+    this.osc = null;
+    this.env = null;
+    this.lastTickTime = 0;
+    this.TICK_GAP_MS = 80; // Small cooldown between sounds
+    
+    // Background music
+    this.bgMusic = null;
+    this.musicPlaying = false;
+    this.musicVolume = 0.1; // 10% volume
+    this.musicStarted = false;
+    
+    // Week and year navigation
+    this.currentWeekIndex = null;
+    this.currentDisplayYear = null;
+    
+    // Birth date and age calculation
+    this.birthDate = null;
+    this.userAge = 0;
+    this.weeksLived = 0;
+    this.showStartingPage = true;
+    this.startingPage = null;
+    
+    // Mouse trail and goal countdown
+    this.mouseTrail = null;
+    this.goalCountdown = null;
+    
+    // Grid Layout Parameters
+    this.numRows = 7;
+    this.circleSize = 100; // Made variable for responsive design
+    this.xSpacing = this.circleSize + 30;
+    this.ySpacing = this.circleSize; // Use a tighter vertical spacing for the honeycomb look
+    this.backgroundColour = "#F7F6E4";
+  }
+}
 
-// This array will hold the 52 WeekCircle objects
-let weeks = [];
-// This array will hold the 52 data objects
-let yearData = [];
-
-// Audio for hover sounds
-let osc, env;
-let lastTickTime = 0;
-const TICK_GAP_MS = 80; // Small cooldown between sounds
-
-// Background music
-let bgMusic;
-let musicPlaying = false;
-let musicVolume = 0.1; // 10% volume
-let musicStarted = false;
-
-let currentWeekIndex;
-
-// Year navigation
-let currentDisplayYear; // The year currently being displayed
-
-// Birth date and age calculation
-let birthDate = null;
-let userAge = 0;
-let weeksLived = 0;
-let showStartingPage = true;
-let startingPage;
-
-// Modal state
-let selectedWeeksSinceBirth = null; // Weeks since birth for the selected week (universal identifier)
-let editingMemoryId = null; // ID of memory being edited, null if adding new
-
-// Mouse trail
-let mouseTrail;
-
-// Goal countdown
-let goalCountdown;
-
-// --- Grid Layout Parameters ---
-const numRows = 7;
-let circleSize = 100; // Made variable for responsive design
-let xSpacing = circleSize + 30;
-// Use a tighter vertical spacing for the honeycomb look
-let ySpacing = circleSize; 
-const backgroundColour = "#F7F6E4";
+// Create global App instance
+let app = new App();
 
 /**
  * p5.js preload()
@@ -52,20 +55,20 @@ const backgroundColour = "#F7F6E4";
  */
 function preload() {
   // Load background music
-  bgMusic = loadSound('bg_music.mp3');
+  app.bgMusic = loadSound('bg_music.mp3');
 }
 
 /**
  * calculateAgeAndWeeks()
- * Updates global variables from DateUtils
+ * Calculates and updates user age and weeks lived
  */
 function calculateAgeAndWeeks() {
-  if (birthDate) {
+  if (app.birthDate) {
     let now = new Date();
-    let diffTime = now.getTime() - birthDate.getTime();
+    let diffTime = now.getTime() - app.birthDate.getTime();
     let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    userAge = Math.floor(diffDays / 365.25);
-    weeksLived = Math.floor(diffDays / 7);
+    app.userAge = Math.floor(diffDays / 365.25);
+    app.weeksLived = Math.floor(diffDays / 7);
   }
 }
 
@@ -78,13 +81,13 @@ function calculateAgeAndWeeks() {
  * @param {Date} [providedBirthDate] - Optional birth date (uses global birthDate if not provided)
  */
 function getWeeksSinceBirth(weekIndex, year, providedBirthDate) {
-  // Use provided birthDate or global birthDate
-  let dateToUse = providedBirthDate || birthDate;
+  // Use provided birthDate or app birthDate
+  let dateToUse = providedBirthDate || app.birthDate;
   if (!dateToUse) return weekIndex + 1;
   
-  // Use provided year or currentDisplayYear, or fallback to current year
+  // Use provided year or app currentDisplayYear, or fallback to current year
   if (year === undefined) {
-    year = currentDisplayYear || new Date().getFullYear();
+    year = app.currentDisplayYear || new Date().getFullYear();
   }
   
   // Use the same logic as DateUtils version
@@ -104,24 +107,24 @@ function calculateResponsiveSizes() {
   // Base sizes for different screen widths
   if (windowWidth < 600) {
     // Mobile: smaller circles
-    circleSize = 40;
-    xSpacing = circleSize + 15;
-    ySpacing = circleSize;
+    app.circleSize = 40;
+    app.xSpacing = app.circleSize + 15;
+    app.ySpacing = app.circleSize;
   } else if (windowWidth < 900) {
     // Tablet: medium circles
-    circleSize = 60;
-    xSpacing = circleSize + 20;
-    ySpacing = circleSize;
+    app.circleSize = 60;
+    app.xSpacing = app.circleSize + 20;
+    app.ySpacing = app.circleSize;
   } else if (windowWidth < 1200) {
     // Small desktop: slightly smaller
-    circleSize = 80;
-    xSpacing = circleSize + 25;
-    ySpacing = circleSize;
+    app.circleSize = 80;
+    app.xSpacing = app.circleSize + 25;
+    app.ySpacing = app.circleSize;
   } else {
     // Large desktop: full size
-    circleSize = 100;
-    xSpacing = circleSize + 30;
-    ySpacing = circleSize;
+    app.circleSize = 100;
+    app.xSpacing = app.circleSize + 30;
+    app.ySpacing = app.circleSize;
   }
 }
 
@@ -133,30 +136,32 @@ function setup() {
 
   // Calculate responsive sizes (after canvas is created)
   calculateResponsiveSizes();
+  
+  // Note: circleSize, xSpacing, ySpacing are now stored in app properties
 
   // Initialize starting page
-  startingPage = new StartingPage();
+  app.startingPage = new StartingPage();
   
   // Check if birth date already exists
   if (StartingPage.checkIfBirthDateExists()) {
     // Birth date exists - skip intro and go directly to transition
-    birthDate = StartingPage.getSavedBirthDate();
+    app.birthDate = StartingPage.getSavedBirthDate();
     calculateAgeAndWeeks();
     // Start transition immediately
-    startingPage.startTransitionFromExisting();
-    showStartingPage = true; // Still show starting page to display transition
+    app.startingPage.startTransitionFromExisting();
+    app.showStartingPage = true; // Still show starting page to display transition
   } else {
     // No birth date - show intro sequence
-    showStartingPage = true;
+    app.showStartingPage = true;
   }
 
   // --- Audio Setup ---
-  osc = new p5.Oscillator("sine");
-  osc.freq(200);
-  osc.amp(0);
-  osc.start();
+  app.osc = new p5.Oscillator("sine");
+  app.osc.freq(200);
+  app.osc.amp(0);
+  app.osc.start();
 
-  env = new p5.Envelope(0.001, 0.25, 0.04, 0.0);
+  app.env = new p5.Envelope(0.001, 0.25, 0.04, 0.0);
 
   // --- Background Music Setup ---
   setupBackgroundMusic();
@@ -164,6 +169,12 @@ function setup() {
   
   // --- Modal Event Listeners ---
   setupModalListeners();
+  
+  // Initialize modalManager with birthDate (will be set when birthDate is available)
+  if (app.birthDate) {
+    modalManager.setBirthDate(app.birthDate);
+  }
+  modalManager.setRefreshCallback(refreshCircleData);
   
   // --- Music Toggle Button Setup ---
   let musicToggleBtn = document.getElementById('music-toggle-btn');
@@ -187,23 +198,23 @@ function setup() {
   let yearPrevBtn = document.getElementById('year-prev-btn');
   if (yearPrevBtn) {
     yearPrevBtn.addEventListener('click', function() {
-      navigateToYear(currentDisplayYear - 1);
+      navigateToYear(app.currentDisplayYear - 1);
     });
   }
   
   let yearNextBtn = document.getElementById('year-next-btn');
   if (yearNextBtn) {
     yearNextBtn.addEventListener('click', function() {
-      navigateToYear(currentDisplayYear + 1);
+      navigateToYear(app.currentDisplayYear + 1);
     });
   }
   
   // Initialize mouse trail
-  mouseTrail = new MouseTrail();
-  mouseTrail.initialize();
-  
+  app.mouseTrail = new MouseTrail();
+  app.mouseTrail.initialize();
+
   // Initialize goal countdown
-  goalCountdown = new GoalCountdown();
+  app.goalCountdown = new GoalCountdown();
 }
 
 /**
@@ -212,33 +223,35 @@ function setup() {
  */
 function draw() {
   // Background is set by StartingPage during intro, or by backgroundColour in main app
-  if (!showStartingPage) {
-    background(backgroundColour);
+  if (!app.showStartingPage) {
+    background(app.backgroundColour);
   }
   
   // Update mouse trail
-  if (mouseTrail) {
-    mouseTrail.update(showStartingPage);
+  if (app.mouseTrail) {
+    app.mouseTrail.update(app.showStartingPage);
   }
 
-  if (showStartingPage) {
-    startingPage.display();
+  if (app.showStartingPage) {
+    app.startingPage.display();
     
     // Check if intro sequence is complete
-    if (startingPage.isComplete()) {
+    if (app.startingPage.isComplete()) {
       // Transition complete, initialize main app
-      birthDate = StartingPage.getSavedBirthDate();
-      if (birthDate) {
+      app.birthDate = StartingPage.getSavedBirthDate();
+      if (app.birthDate) {
         calculateAgeAndWeeks();
-        showStartingPage = false;
-        weeks = [];
+        // Update modalManager with birthDate
+        modalManager.setBirthDate(app.birthDate);
+        app.showStartingPage = false;
+        app.weeks = [];
         initializeMainApp();
       }
     }
     
     // Draw mouse trail on top (even on starting page, but it will be cleared by update)
-    if (mouseTrail) {
-      mouseTrail.display(showStartingPage);
+    if (app.mouseTrail) {
+      app.mouseTrail.display(app.showStartingPage);
     }
     // Hide home button and navigation buttons on starting page
     let homeBtn = document.getElementById('home-btn');
@@ -270,31 +283,31 @@ function draw() {
 
   // Only check hover states if modal is NOT open
   if (!modalOpen) {
-    for (let week of weeks) {
+    for (let week of app.weeks) {
       week.checkHover();
     }
   } else {
     // If modal is open, clear all hover states to prevent hover effects
-    for (let week of weeks) {
+    for (let week of app.weeks) {
       week.isHovered = false;
     }
   }
 
   // Draw all circles (pass today to avoid creating it 52 times)
-  for (let week of weeks) {
-    week.display(currentWeekIndex, currentDisplayYear, birthDate, today);
+  for (let week of app.weeks) {
+    week.display(app.currentWeekIndex, app.currentDisplayYear, app.birthDate, today);
   }
 
   // Draw mouse trail on top of everything
-  if (mouseTrail) {
-    mouseTrail.display(showStartingPage);
+  if (app.mouseTrail) {
+    app.mouseTrail.display(app.showStartingPage);
   }
   
   // Update and display goal countdown (only when not on starting page)
   // Pass today to avoid creating it again
-  if (!showStartingPage && goalCountdown && birthDate) {
-    goalCountdown.update(birthDate, currentDisplayYear, currentWeekIndex, today);
-    goalCountdown.display();
+  if (!app.showStartingPage && app.goalCountdown && app.birthDate) {
+    app.goalCountdown.update(app.birthDate, app.currentDisplayYear, app.currentWeekIndex, today);
+    app.goalCountdown.display();
   }
 }
 
@@ -331,7 +344,9 @@ function isButtonClick() {
  */
 function handleStartingPageClick() {
   // Pass mouse coordinates to handleClick
-  startingPage.handleClick(mouseX, mouseY);
+  if (app.startingPage) {
+    app.startingPage.handleClick(mouseX, mouseY);
+  }
   // Main app initialization happens when isComplete() returns true
 }
 
@@ -354,7 +369,7 @@ function mousePressed() {
   if (isButtonClick()) return;
 
   // Handle starting page clicks
-  if (showStartingPage) {
+  if (app.showStartingPage) {
     handleStartingPageClick();
     return;
   }
@@ -364,13 +379,13 @@ function mousePressed() {
   startBackgroundMusic();
   
   // Check if a goal countdown card was clicked
-  if (goalCountdown) {
-    let clickedGoal = goalCountdown.checkClick(mouseX, mouseY);
+  if (app.goalCountdown) {
+    let clickedGoal = app.goalCountdown.checkClick(mouseX, mouseY);
     if (clickedGoal) {
       // Open the memory in view mode
       if (typeof viewMemory === 'function' && clickedGoal.weeksSinceBirth !== undefined && clickedGoal.memoryId) {
         // Set the selected week to open the modal
-        selectedWeeksSinceBirth = clickedGoal.weeksSinceBirth;
+        modalManager.selectedWeeksSinceBirth = clickedGoal.weeksSinceBirth;
         // Show the modal
         let modal = document.getElementById('entry-modal');
         if (modal) {
@@ -390,7 +405,7 @@ function mousePressed() {
   }
   
   // Check which circle was clicked
-  for (let week of weeks) {
+  for (let week of app.weeks) {
     if (week.isBeforeBirth) continue;
     
     if (isClickOnCircle(week)) {
@@ -408,7 +423,7 @@ function mousePressed() {
  */
 function showWeekModal(week) {
   // Store weeks since birth as the universal identifier
-  selectedWeeksSinceBirth = week.weeksSinceBirth;
+  modalManager.selectedWeeksSinceBirth = week.weeksSinceBirth;
   
   // Get modal elements
   let modal = document.getElementById('entry-modal');
@@ -422,7 +437,7 @@ function showWeekModal(week) {
   }
   
   // Get the year and week index for this weeks since birth
-  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(week.weeksSinceBirth, birthDate);
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(week.weeksSinceBirth, app.birthDate);
   if (!yearWeekInfo) {
     console.error('Could not determine year and week index for weeks since birth:', week.weeksSinceBirth);
     return;
@@ -431,7 +446,7 @@ function showWeekModal(week) {
   // Set modal title based on week type
   let currentYear = new Date().getFullYear();
   let isFutureWeek = (yearWeekInfo.year > currentYear) || 
-                     (yearWeekInfo.year === currentYear && yearWeekInfo.weekIndex > currentWeekIndex);
+                     (yearWeekInfo.year === currentYear && yearWeekInfo.weekIndex > app.currentWeekIndex);
   
   // Display week number within the year (1-52)
   modalTitle.textContent = isFutureWeek 
@@ -439,7 +454,7 @@ function showWeekModal(week) {
     : `Week ${yearWeekInfo.weekIndex + 1} - Memories`;
   
   // Reset editing state (we're adding new, not editing)
-  editingMemoryId = null;
+  modalManager.editingMemoryId = null;
   
   // Update save button text
   let saveBtn = document.getElementById('modal-save-btn');
@@ -505,7 +520,7 @@ function setupDateInput(yearWeekInfo) {
  * Clears hover states for all week circles
  */
 function clearAllHoverStates() {
-  for (let w of weeks) {
+  for (let w of app.weeks) {
     w.isHovered = false;
   }
 }
@@ -548,17 +563,17 @@ function returnToHome() {
   }
   
   // Clear the weeks array
-  weeks = [];
+  app.weeks = [];
   
   // Reset state variables (but keep birth date in localStorage)
-  birthDate = null;
-  userAge = 0;
-  weeksLived = 0;
-  showStartingPage = true;
+  app.birthDate = null;
+  app.userAge = 0;
+  app.weeksLived = 0;
+  app.showStartingPage = true;
   
   // Don't clear the saved birth date - allow user to re-enter if they want
   // Reset starting page to show the intro sequence again
-  startingPage = new StartingPage();
+  app.startingPage = new StartingPage();
 }
 
 /**
@@ -568,20 +583,20 @@ function returnToHome() {
  */
 function refreshCircleData(year) {
   // Only refresh if we're viewing the same year
-  if (year !== currentDisplayYear) {
+  if (year !== app.currentDisplayYear) {
     return;
   }
   
   // Reload the year data
-  yearData = loadData(year);
+  app.yearData = loadData(year);
   
   // Update each circle's data reference and recalculate state
   let today = new Date();
-  for (let week of weeks) {
-    if (week.id >= 0 && week.id < yearData.length) {
-      week.data = yearData[week.id];
+  for (let week of app.weeks) {
+    if (week.id >= 0 && week.id < app.yearData.length) {
+      week.data = app.yearData[week.id];
       // Recalculate state in case data changed
-      week.updateState(currentDisplayYear, birthDate, today);
+      week.updateState(app.currentDisplayYear, app.birthDate, today);
     }
   }
 }
@@ -592,10 +607,10 @@ function refreshCircleData(year) {
  * @param {number} year - The year to navigate to
  */
 function navigateToYear(year) {
-  if (!birthDate) return; // Can't navigate without birth date
+  if (!app.birthDate) return; // Can't navigate without birth date
   
   // Get birth year to prevent navigating before birth
-  let birthYear = birthDate.getFullYear();
+  let birthYear = app.birthDate.getFullYear();
   
   // Prevent navigating to years before birth year
   if (year < birthYear) {
@@ -610,11 +625,11 @@ function navigateToYear(year) {
   }
   
   // Clear modal state to prevent using stale week identifier
-  selectedWeeksSinceBirth = null;
-  editingMemoryId = null;
+  modalManager.selectedWeeksSinceBirth = null;
+  modalManager.editingMemoryId = null;
   
   // Clear existing weeks
-  weeks = [];
+  app.weeks = [];
   
   // Rebuild for the new year
   initializeMainApp(year);
@@ -628,10 +643,10 @@ function updateNavigationButtons() {
   let prevBtn = document.getElementById('year-prev-btn');
   let nextBtn = document.getElementById('year-next-btn');
   
-  if (!prevBtn || !nextBtn || !currentDisplayYear) return;
+  if (!prevBtn || !nextBtn || !app.currentDisplayYear) return;
   
   // Show buttons only when not on starting page
-  if (showStartingPage) {
+  if (app.showStartingPage) {
     prevBtn.style.display = 'none';
     nextBtn.style.display = 'none';
     return;
@@ -642,9 +657,9 @@ function updateNavigationButtons() {
   nextBtn.style.display = 'flex';
   
   // Disable previous button if at or before birth year
-  if (birthDate) {
-    let birthYear = birthDate.getFullYear();
-    if (currentDisplayYear <= birthYear) {
+  if (app.birthDate) {
+    let birthYear = app.birthDate.getFullYear();
+    if (app.currentDisplayYear <= birthYear) {
       // Disable previous button - can't go before birth year
       prevBtn.disabled = true;
     } else {
@@ -665,33 +680,33 @@ function initializeMainApp(year) {
   }
   
   // Ensure we don't start before birth year
-  if (birthDate) {
-    let birthYear = birthDate.getFullYear();
+  if (app.birthDate) {
+    let birthYear = app.birthDate.getFullYear();
     if (year < birthYear) {
       console.log(`Cannot initialize to year ${year} - before birth year ${birthYear}. Using birth year instead.`);
       year = birthYear;
     }
   }
   
-  currentDisplayYear = year;
+  app.currentDisplayYear = year;
   
   let now = new Date();
   let isoWeekInfo = getISOWeekNumber(now);
-  currentWeekIndex = isoWeekInfo.weekNumber - 1; // Convert to 0-based index
+  app.currentWeekIndex = isoWeekInfo.weekNumber - 1; // Convert to 0-based index
   
   // Only highlight current week if viewing the ISO year (which handles year boundaries correctly)
   if (year !== isoWeekInfo.year) {
-    currentWeekIndex = -1; // No current week highlight for past/future years
+    app.currentWeekIndex = -1; // No current week highlight for past/future years
   }
 
-  yearData = loadData(year);
+  app.yearData = loadData(year);
 
   let weekID = 0;
   
   // Calculate the total grid dimensions to center it
-  let gridWidth = 8 * xSpacing;
-  let gridHeight = 7 * ySpacing;
-  let startX = (width - gridWidth) / 2 + (xSpacing / 2);
+  let gridWidth = 8 * app.xSpacing;
+  let gridHeight = 7 * app.ySpacing;
+  let startX = (width - gridWidth) / 2 + (app.xSpacing / 2);
   
   // Responsive header offset
   let headerOffset = windowWidth < 600 ? 50 : windowWidth < 900 ? 70 : 80;
@@ -701,22 +716,22 @@ function initializeMainApp(year) {
   let today = now;
 
   // Loop through 7 and 8rows
-  for (let r = 0; r < numRows; r++) {
-    let y = startY + r * ySpacing;
+  for (let r = 0; r < app.numRows; r++) {
+    let y = startY + r * app.ySpacing;
     let isEvenRow = (r % 2 === 0);
     let numCols = isEvenRow ? 7 : 8;
-    let xOffset = isEvenRow ? xSpacing / 2 : 0;
+    let xOffset = isEvenRow ? app.xSpacing / 2 : 0;
 
     for (let c = 0; c < numCols; c++) {
-      let x = startX + xOffset + c * xSpacing;
-      let dataForThisWeek = yearData[weekID];
+      let x = startX + xOffset + c * app.xSpacing;
+      let dataForThisWeek = app.yearData[weekID];
       let weeksSinceBirth = getWeeksSinceBirth(weekID, year);
-      let newWeek = new WeekCircle(x, y, circleSize, weekID, weeksSinceBirth, dataForThisWeek);
+      let newWeek = new WeekCircle(x, y, app.circleSize, weekID, weeksSinceBirth, dataForThisWeek);
 
       // Calculate and cache state once when circle is created
-      newWeek.updateState(year, birthDate, today);
+      newWeek.updateState(year, app.birthDate, today);
 
-      weeks.push(newWeek);
+      app.weeks.push(newWeek);
       weekID++;
     }
   }
@@ -736,11 +751,11 @@ function windowResized() {
   calculateResponsiveSizes();
   
   // Update existing circles if the app is initialized
-  if (!showStartingPage && weeks.length > 0) {
+  if (!app.showStartingPage && app.weeks.length > 0) {
     // Calculate new grid layout
-    let gridWidth = 8 * xSpacing;
-    let gridHeight = 7 * ySpacing;
-    let startX = (width - gridWidth) / 2 + (xSpacing / 2);
+    let gridWidth = 8 * app.xSpacing;
+    let gridHeight = 7 * app.ySpacing;
+    let startX = (width - gridWidth) / 2 + (app.xSpacing / 2);
     
     // Responsive header offset
     let headerOffset = windowWidth < 600 ? 50 : windowWidth < 900 ? 70 : 80;
@@ -748,17 +763,17 @@ function windowResized() {
     
     // Update each circle's position and size
     let weekID = 0;
-    for (let r = 0; r < numRows; r++) {
-      let y = startY + r * ySpacing;
+    for (let r = 0; r < app.numRows; r++) {
+      let y = startY + r * app.ySpacing;
       let isEvenRow = (r % 2 === 0);
       let numCols = isEvenRow ? 7 : 8;
-      let xOffset = isEvenRow ? xSpacing / 2 : 0;
+      let xOffset = isEvenRow ? app.xSpacing / 2 : 0;
 
       for (let c = 0; c < numCols; c++) {
-        let x = startX + xOffset + c * xSpacing;
-        if (weekID < weeks.length) {
+        let x = startX + xOffset + c * app.xSpacing;
+        if (weekID < app.weeks.length) {
           // Update existing circle's layout
-          weeks[weekID].updateLayout(x, y, circleSize);
+          app.weeks[weekID].updateLayout(x, y, app.circleSize);
         }
         weekID++;
       }
@@ -792,7 +807,7 @@ function getOrdinalSuffix(num) {
  * Draws the header showing age and weeks lived, and current year
  */
 function drawHeader() {
-  if (birthDate) {
+  if (app.birthDate) {
     push();
     noStroke();
     textAlign(CENTER, TOP);
@@ -809,16 +824,16 @@ function drawHeader() {
     let yearMargin = topMargin + (windowWidth < 600 ? 25 : windowWidth < 900 ? 30 : 55);
     
     // Format week number with ordinal suffix and comma formatting
-    let weekFormatted = weeksLived.toLocaleString();
-    let weekOrdinal = weekFormatted + getOrdinalSuffix(weeksLived);
-    text(`You are ${userAge} years old. This is your ${weekOrdinal} week.`, 
+    let weekFormatted = app.weeksLived.toLocaleString();
+    let weekOrdinal = weekFormatted + getOrdinalSuffix(app.weeksLived);
+    text(`You are ${app.userAge} years old. This is your ${weekOrdinal} week.`, 
           width / 2, topMargin);
     
     // Show current year being displayed
-    if (currentDisplayYear) {
+    if (app.currentDisplayYear) {
       textStyle(BOLD);
       textSize(yearTextSize);
-      let yearText = `Year ${currentDisplayYear}`;
+      let yearText = `Year ${app.currentDisplayYear}`;
       text(yearText, width / 2, yearMargin);
     }
     

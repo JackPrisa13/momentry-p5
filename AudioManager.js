@@ -2,15 +2,15 @@
  * AudioManager.js
  * Handles all audio-related functionality including hover sounds and background music
  * 
- * Note: This module relies on global variables from sketch.js:
- * - osc: p5.Oscillator for hover sounds
- * - env: p5.Envelope for hover sound envelope
- * - lastTickTime: Timestamp of last hover sound
- * - TICK_GAP_MS: Minimum time between hover sounds
- * - bgMusic: p5.Sound object for background music
- * - musicPlaying: Boolean indicating if music is playing
- * - musicVolume: Volume level for background music
- * - musicStarted: Boolean indicating if music has been started
+ * Note: This module uses the global app instance from sketch.js:
+ * - app.osc: p5.Oscillator for hover sounds
+ * - app.env: p5.Envelope for hover sound envelope
+ * - app.lastTickTime: Timestamp of last hover sound
+ * - app.TICK_GAP_MS: Minimum time between hover sounds
+ * - app.bgMusic: p5.Sound object for background music
+ * - app.musicPlaying: Boolean indicating if music is playing
+ * - app.musicVolume: Volume level for background music
+ * - app.musicStarted: Boolean indicating if music has been started
  */
 
 /**
@@ -18,10 +18,11 @@
  * Plays a hover sound with debouncing
  */
 function playTick() {
+  if (!app) return; // Safety check
   const now = millis();
-  if (now - lastTickTime < TICK_GAP_MS) return; // Debounce
-  if (env && osc) env.play(osc);
-  lastTickTime = now;
+  if (now - app.lastTickTime < app.TICK_GAP_MS) return; // Debounce
+  if (app.env && app.osc) app.env.play(app.osc);
+  app.lastTickTime = now;
 }
 
 /**
@@ -29,12 +30,11 @@ function playTick() {
  * Sets up the loaded background music file
  */
 function setupBackgroundMusic() {
-  if (bgMusic) {
-    // Set volume and loop settings
-    bgMusic.setVolume(musicVolume);
-    bgMusic.loop(); // Loop the music
-    bgMusic.stop(); // Start stopped, will be played on first interaction
-  }
+  if (!app || !app.bgMusic) return;
+  // Set volume and loop settings
+  app.bgMusic.setVolume(app.musicVolume);
+  app.bgMusic.loop(); // Loop the music
+  app.bgMusic.stop(); // Start stopped, will be played on first interaction
 }
 
 /**
@@ -42,12 +42,13 @@ function setupBackgroundMusic() {
  * Starts the background music with fade-in
  */
 function startBackgroundMusic() {
-  if (!musicStarted && bgMusic) {
-    musicStarted = true;
-    musicPlaying = true;
+  if (!app || !app.bgMusic) return;
+  if (!app.musicStarted) {
+    app.musicStarted = true;
+    app.musicPlaying = true;
     
     // Start playing the music
-    bgMusic.play();
+    app.bgMusic.play();
     // Update the icon
     updateMusicIcon();
   }
@@ -58,19 +59,18 @@ function startBackgroundMusic() {
  * Toggles background music on/off
  */
 function toggleBackgroundMusic() {
-  if (bgMusic) {
-    if (musicPlaying) {
-      // Stop the music
-      bgMusic.stop();
-      musicPlaying = false;
-    } else {
-      // Start the music
-      bgMusic.play();
-      musicPlaying = true;
-    }
-    // Update the icon
-    updateMusicIcon();
+  if (!app || !app.bgMusic) return;
+  if (app.musicPlaying) {
+    // Stop the music
+    app.bgMusic.stop();
+    app.musicPlaying = false;
+  } else {
+    // Start the music
+    app.bgMusic.play();
+    app.musicPlaying = true;
   }
+  // Update the icon
+  updateMusicIcon();
 }
 
 /**
@@ -78,9 +78,10 @@ function toggleBackgroundMusic() {
  * Updates the music toggle button icon based on current music state
  */
 function updateMusicIcon() {
+  if (!app) return;
   let musicIcon = document.getElementById('music-icon');
   if (musicIcon) {
-    musicIcon.textContent = musicPlaying ? '♫' : 'Ⓧ';
+    musicIcon.textContent = app.musicPlaying ? '♫' : 'Ⓧ';
   }
 }
 

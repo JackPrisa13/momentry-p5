@@ -1,17 +1,73 @@
 /**
  * ModalManager.js
  * Handles all modal dialog and memory management functionality
- * 
- * Note: This module relies on global variables from sketch.js:
- * - selectedWeeksSinceBirth: The currently selected week's weeks since birth (universal identifier)
- * - editingMemoryId: The ID of the memory being edited (null if adding new)
- * - birthDate: The user's birth date (needed for mapping weeks since birth to year/weekIndex)
+ * Refactored into a class to encapsulate state and reduce global variable dependencies
  */
 
-// Holds the current image (base64 data URL) selected in the modal form
-let modalImageDataURL = null; // For image edit section
-let modalImageDataURLNew = null; // For new memory input section
+/**
+ * ModalManager Class
+ * Encapsulates all modal state and functionality
+ */
+class ModalManager {
+  constructor() {
+    // Modal state
+    this.selectedWeeksSinceBirth = null; // Weeks since birth for the selected week (universal identifier)
+    this.editingMemoryId = null; // ID of memory being edited, null if adding new
+    
+    // Image data (base64 data URLs)
+    this.modalImageDataURL = null; // For image edit section
+    this.modalImageDataURLNew = null; // For new memory input section
+    
+    // Reference to birthDate (set via setBirthDate method)
+    this.birthDate = null;
+    
+    // Reference to refreshCircleData callback (set via setRefreshCallback)
+    this.refreshCircleDataCallback = null;
+  }
+  
+  /**
+   * setBirthDate()
+   * Sets the birth date reference
+   * @param {Date} birthDate - The user's birth date
+   */
+  setBirthDate(birthDate) {
+    this.birthDate = birthDate;
+  }
+  
+  /**
+   * setRefreshCallback()
+   * Sets the callback function for refreshing circle data
+   * @param {Function} callback - Function to call when data needs to be refreshed
+   */
+  setRefreshCallback(callback) {
+    this.refreshCircleDataCallback = callback;
+  }
+  
+  // Helper methods for date formatting (static utility methods)
+  static formatDateForDisplay(dateString) {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+  
+  static formatDateForView(dateString) {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+  
+  // Main modal methods will be added here
+  // These will replace the global functions below
+}
 
+// Create a global instance for backward compatibility during refactoring
+let modalManager = new ModalManager();
+
+// Keep utility functions outside class (they don't need instance state)
 /**
  * formatDateForDisplay()
  * Formats a date string for display in the memory list (short format)
@@ -120,14 +176,14 @@ function setupImageInputHandler(imageInput, imagePreview, imageClearBtn, dataURL
       // Resize image to max 1080px on longest side
       resizeImage(evt.target.result, 1080)
         .then(function(resizedDataURL) {
-          // Store in appropriate variable
+          // Store in appropriate variable using modalManager instance
           if (dataURLVar === 'modalImageDataURL') {
-            modalImageDataURL = resizedDataURL;
+            modalManager.modalImageDataURL = resizedDataURL;
           } else if (dataURLVar === 'modalImageDataURLNew') {
-            if (editingMemoryId !== null) {
-              modalImageDataURL = resizedDataURL; // For editing
+            if (modalManager.editingMemoryId !== null) {
+              modalManager.modalImageDataURL = resizedDataURL; // For editing
             } else {
-              modalImageDataURLNew = resizedDataURL; // For new memory
+              modalManager.modalImageDataURLNew = resizedDataURL; // For new memory
             }
           }
           
@@ -155,12 +211,12 @@ function setupImageInputHandler(imageInput, imagePreview, imageClearBtn, dataURL
   if (imageClearBtn) {
     imageClearBtn.addEventListener('click', function() {
       if (dataURLVar === 'modalImageDataURL') {
-        modalImageDataURL = null;
+        modalManager.modalImageDataURL = null;
       } else if (dataURLVar === 'modalImageDataURLNew') {
-        if (editingMemoryId !== null) {
-          modalImageDataURL = null; // null means "remove image" when editing
+        if (modalManager.editingMemoryId !== null) {
+          modalManager.modalImageDataURL = null; // null means "remove image" when editing
         } else {
-          modalImageDataURLNew = null; // For new memory
+          modalManager.modalImageDataURLNew = null; // For new memory
         }
       }
       
@@ -185,14 +241,14 @@ function setupModalListeners() {
   let cancelBtn = document.getElementById('modal-cancel-btn');
   cancelBtn.addEventListener('click', function() {
     // If editing, return to view mode; otherwise close modal
-    if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
+    if (modalManager.editingMemoryId !== null && modalManager.selectedWeeksSinceBirth !== null) {
       // Get the memory to restore its date before clearing
-      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(modalManager.selectedWeeksSinceBirth, modalManager.birthDate);
       let memoryDate = null;
       if (yearWeekInfo) {
         let yearDataForWeek = loadData(yearWeekInfo.year);
         if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
-          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === editingMemoryId);
+          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === modalManager.editingMemoryId);
           if (memory) {
             memoryDate = memory.date;
           }
@@ -206,7 +262,7 @@ function setupModalListeners() {
       if (textInput) textInput.value = '';
       
       // Clear image preview and inputs
-      modalImageDataURL = undefined; // Explicitly set to undefined for editing
+      modalManager.modalImageDataURL = undefined; // Explicitly set to undefined for editing
       const imagePreviewNew = document.getElementById('memory-image-preview-new');
       const imageInputNew = document.getElementById('memory-image-input-new');
       const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
@@ -224,7 +280,7 @@ function setupModalListeners() {
       }
       
       // Return to view mode showing the memory being edited
-      viewMemory(selectedWeeksSinceBirth, editingMemoryId);
+      viewMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId);
     } else {
       // Not editing, just close the modal
       hideModal();
@@ -249,10 +305,10 @@ function setupModalListeners() {
     closeViewBtn.addEventListener('click', function() {
       // Return to list view with all memories
       showMemoryInputSection(false); // Show list when closing view
-      editingMemoryId = null;
+      modalManager.editingMemoryId = null;
       // Refresh the memories list to show updated data
-      if (selectedWeeksSinceBirth !== null) {
-        displayMemoriesList(selectedWeeksSinceBirth);
+      if (modalManager.selectedWeeksSinceBirth !== null) {
+        displayMemoriesList(modalManager.selectedWeeksSinceBirth);
       }
     });
   }
@@ -261,8 +317,8 @@ function setupModalListeners() {
   let editContentBtn = document.getElementById('memory-edit-content-btn');
   if (editContentBtn) {
     editContentBtn.addEventListener('click', function() {
-      if (editingMemoryId !== null && selectedWeeksSinceBirth !== null) {
-        startEditingMemory(selectedWeeksSinceBirth, editingMemoryId);
+      if (modalManager.editingMemoryId !== null && modalManager.selectedWeeksSinceBirth !== null) {
+        startEditingMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId);
       }
     });
   }
@@ -270,7 +326,7 @@ function setupModalListeners() {
   // Save button
   let saveBtn = document.getElementById('modal-save-btn');
   saveBtn.addEventListener('click', function() {
-    if (selectedWeeksSinceBirth !== null && birthDate) {
+    if (modalManager.selectedWeeksSinceBirth !== null && modalManager.birthDate) {
       let titleInput = document.getElementById('memory-title-input');
       let textInput = document.getElementById('modal-text-input');
       let dateInput = document.getElementById('memory-date-input');
@@ -294,7 +350,7 @@ function setupModalListeners() {
       }
       
       // Convert weeks since birth to year and week index
-      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(modalManager.selectedWeeksSinceBirth, modalManager.birthDate);
       if (!yearWeekInfo) {
         alert('Error: Could not determine week information.');
         return;
@@ -309,26 +365,26 @@ function setupModalListeners() {
         return;
       }
       
-      if (editingMemoryId !== null) {
+      if (modalManager.editingMemoryId !== null) {
         // Editing existing memory (title, text, date, and image)
         // modalImageDataURL is set when user selects/changes image during edit
-        let savedMemoryId = editingMemoryId; // Store ID before clearing
-        editMemory(selectedWeeksSinceBirth, editingMemoryId, title, text, date, modalImageDataURL);
+        let savedMemoryId = modalManager.editingMemoryId; // Store ID before clearing
+        editMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId, title, text, date, modalManager.modalImageDataURL);
         
         // Clear editing state
-        editingMemoryId = null;
-        modalImageDataURL = null; // Clear image data after saving
+        modalManager.editingMemoryId = null;
+        modalManager.modalImageDataURL = null; // Clear image data after saving
         
         // Clear form and reset to initial state
         resetFormToInitialState({ resetDate: true, resetButtons: true, clearImageData: true });
         
         // Return to view mode showing the edited memory
-        viewMemory(selectedWeeksSinceBirth, savedMemoryId);
+        viewMemory(modalManager.selectedWeeksSinceBirth, savedMemoryId);
       } else {
         // Adding new memory (with optional image)
-        addMemory(selectedWeeksSinceBirth, title, text, date, modalImageDataURLNew);
+        addMemory(modalManager.selectedWeeksSinceBirth, title, text, date, modalManager.modalImageDataURLNew);
         // Keep modal open, just refresh list and clear form
-        displayMemoriesList(selectedWeeksSinceBirth);
+        displayMemoriesList(modalManager.selectedWeeksSinceBirth);
         
         // Reset form to initial state
         resetFormToInitialState({ resetDate: true, resetButtons: false, clearImageData: true });
@@ -381,8 +437,8 @@ function resetFormToInitialState(options = {}) {
   if (textInput) textInput.value = '';
   
   // Reset date if requested
-  if (resetDate && dateInput && selectedWeeksSinceBirth !== null && birthDate) {
-    let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(selectedWeeksSinceBirth, birthDate);
+  if (resetDate && dateInput && modalManager.selectedWeeksSinceBirth !== null && modalManager.birthDate) {
+    let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(modalManager.selectedWeeksSinceBirth, modalManager.birthDate);
     if (yearWeekInfo) {
       let weekRange = getWeekDateRange(yearWeekInfo.weekIndex, yearWeekInfo.year);
       // Always use the first day of the week (Monday) as default
@@ -407,8 +463,8 @@ function resetFormToInitialState(options = {}) {
   
   // Clear image data variables if requested
   if (clearImageData) {
-    modalImageDataURL = null;
-    modalImageDataURLNew = null;
+    modalManager.modalImageDataURL = null;
+    modalManager.modalImageDataURLNew = null;
   }
   
   // Reset button texts if requested
@@ -459,8 +515,8 @@ function hideModal() {
   // Show input section, hide view and image edit sections
   showMemoryInputSection(false);
   
-  selectedWeeksSinceBirth = null;
-  editingMemoryId = null;
+  modalManager.selectedWeeksSinceBirth = null;
+  modalManager.editingMemoryId = null;
 }
 
 /**
@@ -470,12 +526,12 @@ function hideModal() {
  * @returns {Object|null} - { yearData, yearWeekInfo } or null if error
  */
 function getYearDataForWeek(weeksSinceBirth) {
-  if (!birthDate) {
+  if (!modalManager.birthDate) {
     console.error('Cannot access memory: birthDate not set');
     return null;
   }
   
-  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate);
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, modalManager.birthDate);
   if (!yearWeekInfo) {
     console.error('Could not determine year and week index for weeks since birth:', weeksSinceBirth);
     return null;
@@ -495,8 +551,9 @@ function getYearDataForWeek(weeksSinceBirth) {
 function saveYearDataAndRefresh(yearData, year) {
   saveData(yearData, year);
   
-  if (typeof refreshCircleData === 'function') {
-    refreshCircleData(year);
+  // Use the callback from modalManager if available
+  if (modalManager.refreshCircleDataCallback) {
+    modalManager.refreshCircleDataCallback(year);
   }
 }
 
@@ -624,13 +681,13 @@ function displayMemoriesList(weeksSinceBirth) {
   
   memoriesList.innerHTML = '';
   
-  if (!birthDate) {
+  if (!modalManager.birthDate) {
     console.error('Cannot display memories: birthDate not set');
     return;
   }
   
   // Convert weeks since birth to year and week index
-  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate);
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, modalManager.birthDate);
   if (!yearWeekInfo) {
     console.error('Could not determine year and week index for weeks since birth:', weeksSinceBirth);
     memoriesList.innerHTML = '<div class="empty-memories">Error loading memories.</div>';
@@ -680,13 +737,13 @@ function displayMemoriesList(weeksSinceBirth) {
  * @param {string} memoryId - The ID of the memory to view
  */
 function viewMemory(weeksSinceBirth, memoryId) {
-  if (!birthDate) {
+  if (!modalManager.birthDate) {
     console.error('Cannot view memory: birthDate not set');
     return;
   }
   
   // Convert weeks since birth to year and week index
-  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate);
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, modalManager.birthDate);
   if (!yearWeekInfo) {
     console.error('Could not determine year and week index for weeks since birth:', weeksSinceBirth);
     return;
@@ -705,7 +762,7 @@ function viewMemory(weeksSinceBirth, memoryId) {
   }
   
   // Set editingMemoryId so we can edit the image later
-  editingMemoryId = memoryId;
+  modalManager.editingMemoryId = memoryId;
   
   // Hide input section and memories list, show view section
   let inputSection = document.getElementById('memory-input-section');
@@ -776,13 +833,13 @@ function showMemoryInputSection(hideList) {
  * @param {string} memoryId - The ID of the memory to edit
  */
 function startEditingMemory(weeksSinceBirth, memoryId) {
-  if (!birthDate) {
+  if (!modalManager.birthDate) {
     console.error('Cannot start editing memory: birthDate not set');
     return;
   }
   
   // Convert weeks since birth to year and week index
-  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate);
+  let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, modalManager.birthDate);
   if (!yearWeekInfo) {
     console.error('Could not determine year and week index for weeks since birth:', weeksSinceBirth);
     return;
@@ -800,7 +857,7 @@ function startEditingMemory(weeksSinceBirth, memoryId) {
     return;
   }
   
-  editingMemoryId = memoryId;
+  modalManager.editingMemoryId = memoryId;
   
   // Update save button text to "Save" when editing
   let saveBtn = document.getElementById('modal-save-btn');
@@ -855,7 +912,7 @@ function startEditingMemory(weeksSinceBirth, memoryId) {
   const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
   
   // Reset modalImageDataURL to null initially (user can change it by selecting a new image)
-  modalImageDataURL = undefined; // undefined means "don't change", null means "remove"
+  modalManager.modalImageDataURL = undefined; // undefined means "don't change", null means "remove"
   
   if (memory.imageData && imagePreviewNew) {
     // Show existing image in preview
