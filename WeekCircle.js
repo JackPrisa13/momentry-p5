@@ -25,6 +25,10 @@ class WeekCircle {
         this.targetSize = this.baseSize;
         this.currentSize = this.baseSize;
         this.lerpSpeed = 0.1; // Animation speed (0.1 is smooth)
+        this.visualOffsetY = 0;
+        this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
+        this.breathSpeed = random(0.5, 0.9);
+        this.breathPhase = random(TWO_PI);
         
         // --- Cached State (calculated once, not every frame) ---
         this.isBeforeBirth = false;
@@ -108,6 +112,16 @@ class WeekCircle {
     }
 
     /**
+     * updateBreathing()
+     * Updates the gentle vertical drift offset for the visual representation.
+     * The core interaction coordinates remain fixed at (this.x, this.y).
+     */
+    updateBreathing() {
+        const t = millis() * 0.001; // Convert to seconds for easier tuning
+        this.visualOffsetY = sin(t * this.breathSpeed + this.breathPhase) * this.breathAmplitude;
+    }
+
+    /**
      * update()
      * This handles the smooth animation logic for size.
      * It's called internally by display() every frame.
@@ -143,6 +157,7 @@ class WeekCircle {
     display(currentWeekIndex, currentDisplayYear, birthDate, today) {
       // First, update the size animation
         this.update();
+        this.updateBreathing();
         strokeWeight(2);
         
         // Use cached hasData (calculated once in updateState, not every frame)
@@ -196,10 +211,11 @@ class WeekCircle {
         }
     
         // Draw the circle
-        circle(this.x, this.y, this.currentSize);
+        const drawY = this.y + this.visualOffsetY;
+        circle(this.x, drawY, this.currentSize);
         
         // Draw week number text
-        this.drawWeekNumber(currentWeekIndex);
+        this.drawWeekNumber(currentWeekIndex, drawY);
     }
     
     /**
@@ -217,14 +233,16 @@ class WeekCircle {
         // Reset current size to match new base size
         this.currentSize = newSize;
         this.targetSize = newSize;
+        this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
     }
     
     /**
      * drawWeekNumber()
      * Draws the week number text on hover or for current week
      * @param {number} currentWeekIndex - The current week index
+     * @param {number} drawY - The visual y-coordinate (including breathing offset)
      */
-    drawWeekNumber(currentWeekIndex) {
+    drawWeekNumber(currentWeekIndex, drawY) {
         // Don't show week numbers for weeks before birth
         if (this.isBeforeBirth) {
             return;
@@ -265,7 +283,7 @@ class WeekCircle {
             // Responsive offset based on circle size
             let offsetX = this.baseSize * 0.15;
             let offsetY = this.baseSize * 0.20;
-            text(this.id + 1, this.x - this.baseSize / 2 + offsetX, this.y - this.baseSize / 2 + offsetY);
+            text(this.id + 1, this.x - this.baseSize / 2 + offsetX, drawY - this.baseSize / 2 + offsetY);
     
             // Weeks since birth (center, larger) - same color logic
             if (isGoalWeek) {
@@ -283,7 +301,7 @@ class WeekCircle {
             // Responsive text size for weeks since birth
             let weeksSize = windowWidth < 600 ? 15 : windowWidth < 900 ? 20 : 25;
             textSize(weeksSize);
-            text(this.weeksSinceBirth.toLocaleString(), this.x, this.y);
+            text(this.weeksSinceBirth.toLocaleString(), this.x, drawY);
             
             pop();
         }
