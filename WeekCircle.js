@@ -11,7 +11,7 @@ class WeekCircle {
         this.y = y;
         this.id = id;
         this.weeksSinceBirth = weeksSinceBirth;
-        this.data = data; // A *reference* to the data in sketch.js
+        this.data = data;                                           // A *reference* to the data in sketch.js
         this.emptyColour = "#F5F4E3";
         this.emptyColourPast = "#BFC0B1";
         this.filledColourMemory = "#525349";
@@ -21,21 +21,21 @@ class WeekCircle {
     
         // --- State & Animation ---
         this.isHovered = false;
-        this.baseSize = size; // The normal size of the circle
+        this.baseSize = size;                                       // The normal size of the circle
         this.targetSize = this.baseSize;
         this.currentSize = this.baseSize;
-        this.lerpSpeed = 0.1; // Animation speed (0.1 is smooth)
+        this.lerpSpeed = 0.1;                                       // Animation speed (0.1 is smooth)
         this.visualOffsetY = 0;
         this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
         this.breathSpeed = random(0.5, 0.9);
         this.breathPhase = random(TWO_PI);
-        this.alpha = 255; // Opacity for fade transitions (0-255)
+        this.alpha = 255;                                           // Opacity for fade transitions (0-255)
         
         // --- Cached State (calculated once, not every frame) ---
         this.isBeforeBirth = false;
         this.isPast = false;
-        this.weekRange = null; // Cached week date range
-        this.hasData = false; // Cached data check
+        this.weekRange = null;                                      // Cached week date range
+        this.hasData = false;                                       // Cached data check
     }
     
     /**
@@ -90,7 +90,7 @@ class WeekCircle {
      * @returns {boolean} - True if the mouse is over, false otherwise.
      */
     checkHover() {
-        // Don't allow hover for weeks before birth
+        // Weeks before birth are not interactive
         if (this.isBeforeBirth) {
             this.isHovered = false;
             return false;
@@ -104,7 +104,7 @@ class WeekCircle {
             this.isHovered = true;
             // Play sound when entering hover state
             if (!wasHovered) {
-                playTick();
+                audioManager.playTick();
             }
         } else {
             this.isHovered = false;
@@ -128,7 +128,7 @@ class WeekCircle {
      * It's called internally by display() every frame.
      */
     update() {
-      // Don't allow size changes for weeks before birth
+      // Weeks before birth maintain fixed size
         if (this.isBeforeBirth) {
             this.targetSize = this.baseSize;
             this.currentSize = this.baseSize;
@@ -250,7 +250,7 @@ class WeekCircle {
      * @param {number} drawY - The visual y-coordinate (including breathing offset)
      */
     drawWeekNumber(currentWeekIndex, drawY) {
-        // Don't show week numbers for weeks before birth
+        // Weeks before birth don't display week numbers
         if (this.isBeforeBirth) {
             return;
         }

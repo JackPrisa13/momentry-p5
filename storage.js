@@ -32,11 +32,11 @@ function migrateOldDataFormat(data) {
             migratedData.push({
                 memories: week.memory ? [{
                     id: generateMemoryId(),
-                    title: null, // No title for old format
-                    text: week.memory,
+                    title: null,                                  // No title for old format
+                    text: week.memory,                            // Memory text
                     date: new Date().toISOString().split('T')[0], // Today's date as default
-                    timestamp: new Date().toISOString(),
-                    imageData: null // No image for old format
+                    timestamp: new Date().toISOString(),          // Current timestamp
+                    imageData: null                               // No image for old format
                 }] : []
             });
         } else if (week.memories !== undefined) {
@@ -44,11 +44,11 @@ function migrateOldDataFormat(data) {
             let migratedMemories = week.memories.map(mem => {
                 return {
                     id: mem.id || generateMemoryId(),
-                    title: mem.title || null, // Title is optional
-                    text: mem.text || '',
+                    title: mem.title || null,                     
+                    text: mem.text || '',                         
                     date: mem.date || new Date().toISOString().split('T')[0],
                     timestamp: mem.timestamp || new Date().toISOString(),
-                    imageData: mem.imageData || null // Image data if exists
+                    imageData: mem.imageData || null
                 };
             });
             migratedData.push({ memories: migratedMemories });
@@ -120,10 +120,9 @@ function loadData(year) {
             // If we found data, parse it and return it
             let parsedData = JSON.parse(savedData);
             
-            // Check if migration is needed (old format detection)
+            // Check if migration is needed
             if (parsedData.length > 0 && parsedData[0].memory !== undefined && typeof parsedData[0].memory === 'string') {
                 parsedData = migrateOldDataFormat(parsedData);
-                // Save migrated data
                 saveData(parsedData, year);
             }
             

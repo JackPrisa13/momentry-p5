@@ -5,7 +5,7 @@
 
 class GoalCountdown {
   constructor() {
-    this.goals = []; // Array of { title, weeksUntil, daysUntil, weekDate, goalDate }
+    this.goals = [];              // Array of { title, weeksUntil, daysUntil, weekDate, goalDate }
     this.hoverStates = new Map(); // Track hover state by goal key (memoryId + weeksSinceBirth)
   }
 
@@ -29,8 +29,8 @@ class GoalCountdown {
     let currentYear = today.getFullYear();
     
     // Check current year and future years for goals
-    // We'll check up to 5 years in the future to keep it reasonable
-    let maxFutureYear = currentYear + 5;
+    // We'll check up to 10 years in the future to keep it reasonable
+    let maxFutureYear = currentYear + 10;
     
     for (let year = currentYear; year <= maxFutureYear; year++) {
       let yearData = loadData(year);
@@ -56,7 +56,7 @@ class GoalCountdown {
           continue;
         }
         
-        // This is a future week with goals - add each memory as a goal
+        // Future week with goals - add each memory as a goal
         for (let memory of weekData.memories) {
           // Calculate time until this week
           let diffTime = weekStart.getTime() - todayStart.getTime();
@@ -67,22 +67,22 @@ class GoalCountdown {
           let goalDate = memory.date ? new Date(memory.date) : weekStart;
           
           // Calculate weeks since birth for this goal (needed for opening the memory)
-          let weeksSinceBirth = getWeeksSinceBirth(weekIndex, year, birthDate);
+          let weeksSinceBirth = app.getWeeksSinceBirth(weekIndex, year, birthDate);
           
           // Create unique key for this goal to track hover state
           let goalKey = `${memory.id}_${weeksSinceBirth}`;
           
           this.goals.push({
             title: memory.title || memory.text || 'Untitled', // Use title, fallback to text, then "Untitled"
-            memoryId: memory.id, // Store memory ID for opening
-            weeksSinceBirth: weeksSinceBirth, // Store weeks since birth for opening
-            weeksUntil: diffWeeks + 1,
-            daysUntil: diffDays,
-            weekDate: weekStart,
-            goalDate: goalDate,
-            goalKey: goalKey, // Unique identifier for hover tracking
+            memoryId: memory.id,                              // Store memory ID for opening
+            weeksSinceBirth: weeksSinceBirth,                 // Store weeks since birth for opening
+            weeksUntil: diffWeeks + 1,                        // Store weeks until goal
+            daysUntil: diffDays,                              // Store days until goal
+            weekDate: weekStart,                              // Store week date
+            goalDate: goalDate,                               // Store goal date
+            goalKey: goalKey,                                  // Unique identifier for hover tracking
             // Store card bounds for click detection
-            cardBounds: null // Will be calculated in display()
+            cardBounds: null                                   // Will be calculated in display()
           });
         }
       }
@@ -119,7 +119,7 @@ class GoalCountdown {
     let titleFontSize = windowWidth < 600 ? 14 : windowWidth < 900 ? 16 : 18;
     let countdownSpacing = fontSize * 0.2;
     let goalBlockSpacing = fontSize * 0.6; // Reduced spacing between cards
-    let titleSpacing = fontSize * 0.8; // Spacing between title and first card
+    let titleSpacing = fontSize * 0.8;     // Spacing between title and first card
     
     // Card dimensions
     let cardWidth = windowWidth < 600 ? width - 60 : 280; // Reduced width
@@ -168,8 +168,8 @@ class GoalCountdown {
       // Play hover sound when entering hover state (same as week circles)
       // Only play if transitioning from not hovered to hovered
       if (isHovered && !wasHovered) {
-        if (typeof playTick === 'function') {
-          playTick();
+        if (audioManager && typeof audioManager.playTick === 'function') {
+          audioManager.playTick();
         }
       }
       
@@ -206,7 +206,7 @@ class GoalCountdown {
         ? goal.title.substring(0, maxTextLength) + '...' 
         : goal.title;
       
-      // Position goal text (adjusted for card padding) - no stroke on text
+      // Position goal text (adjusted for card padding)
       push();
       noStroke();
       textSize(fontSize);
@@ -215,7 +215,7 @@ class GoalCountdown {
       text(displayText, bounds.x + cardPadding, goalTextY);
       pop();
       
-      // Position countdown below title - no stroke on text
+      // Position countdown below title
       push();
       noStroke();
       textSize(countdownFontSize);
@@ -249,4 +249,3 @@ class GoalCountdown {
     return null;
   }
 }
-

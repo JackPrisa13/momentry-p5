@@ -1,7 +1,7 @@
 /**
  * ModalManager.js
  * Handles all modal dialog and memory management functionality
- * Refactored into a class to encapsulate state and reduce global variable dependencies
+ * Encapsulates modal state and functionality in a class structure
  */
 
 /**
@@ -12,11 +12,11 @@ class ModalManager {
   constructor() {
     // Modal state
     this.selectedWeeksSinceBirth = null; // Weeks since birth for the selected week (universal identifier)
-    this.editingMemoryId = null; // ID of memory being edited, null if adding new
+    this.editingMemoryId = null;         // ID of memory being edited, null if adding new
     
     // Image data (base64 data URLs)
-    this.modalImageDataURL = null; // For image edit section
-    this.modalImageDataURLNew = null; // For new memory input section
+    this.modalImageDataURL = null;     // For image edit section
+    this.modalImageDataURLNew = null;  // For new memory input section
     
     // Reference to birthDate (set via setBirthDate method)
     this.birthDate = null;
@@ -60,14 +60,178 @@ class ModalManager {
     });
   }
   
-  // Main modal methods will be added here
-  // These will replace the global functions below
+  /**
+   * setupListeners()
+   * Sets up event listeners for the modal Save and Cancel buttons
+   */
+  setupListeners() {
+    // Cancel button
+    let cancelBtn = document.getElementById('modal-cancel-btn');
+    cancelBtn.addEventListener('click', function() {
+      // If editing, return to view mode; otherwise close modal
+      if (this.editingMemoryId !== null && this.selectedWeeksSinceBirth !== null) {
+        // Get the memory to restore its date before clearing
+        let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(this.selectedWeeksSinceBirth, this.birthDate);
+        let memoryDate = null;
+        if (yearWeekInfo) {
+          let yearDataForWeek = loadData(yearWeekInfo.year);
+          if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
+            let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === this.editingMemoryId);
+            if (memory) {
+              memoryDate = memory.date;
+            }
+          }
+        }
+        
+        // Reset form fields using shared helper
+        resetFormToInitialState({ resetDate: false, resetButtons: false, clearImageData: true });
+        this.modalImageDataURL = undefined; // Explicitly set to undefined for editing
+        
+        // Restore the memory's date to avoid invalid date state
+        const dateInput = document.getElementById('memory-date-input');
+        if (dateInput && memoryDate) {
+          dateInput.value = memoryDate;
+        }
+        
+        // Return to view mode showing the memory being edited
+        viewMemory(this.selectedWeeksSinceBirth, this.editingMemoryId);
+      } else {
+        // Not editing, just close the modal
+        hideModal();
+      }
+    }.bind(this));
+    
+    // Image input handlers (for image edit section)
+    const imageInput = document.getElementById('memory-image-input');
+    const imagePreview = document.getElementById('memory-image-preview');
+    const imageClearBtn = document.getElementById('memory-image-clear-btn');
+    setupImageInputHandler(imageInput, imagePreview, imageClearBtn, 'modalImageDataURL');
+
+    // Image input handlers (for input section - used for both new and editing)
+    const imageInputNew = document.getElementById('memory-image-input-new');
+    const imagePreviewNew = document.getElementById('memory-image-preview-new');
+    const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
+    setupImageInputHandler(imageInputNew, imagePreviewNew, imageClearBtnNew, 'modalImageDataURLNew');
+
+    // View memory close button
+    let closeViewBtn = document.getElementById('memory-close-view-btn');
+    if (closeViewBtn) {
+      closeViewBtn.addEventListener('click', function() {
+        // Return to list view with all memories
+        showMemoryInputSection(false); // Show list when closing view
+        this.editingMemoryId = null;
+        // Refresh the memories list to show updated data
+        if (this.selectedWeeksSinceBirth !== null) {
+          displayMemoriesList(this.selectedWeeksSinceBirth);
+        }
+      }.bind(this));
+    }
+
+    // Edit content button (title, text, date)
+    let editContentBtn = document.getElementById('memory-edit-content-btn');
+    if (editContentBtn) {
+      editContentBtn.addEventListener('click', function() {
+        if (this.editingMemoryId !== null && this.selectedWeeksSinceBirth !== null) {
+          startEditingMemory(this.selectedWeeksSinceBirth, this.editingMemoryId);
+        }
+      }.bind(this));
+    }
+
+    // Save button
+    let saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.addEventListener('click', function() {
+      if (this.selectedWeeksSinceBirth !== null && this.birthDate) {
+        let titleInput = document.getElementById('memory-title-input');
+        let textInput = document.getElementById('modal-text-input');
+        let dateInput = document.getElementById('memory-date-input');
+        let title = titleInput ? titleInput.value.trim() : '';
+        let text = textInput.value.trim();
+        let date = dateInput.value;
+        
+        if (!title) {
+          alert('Please enter a title.');
+          return;
+        }
+        
+        if (!text) {
+          alert('Please enter a memory or goal.');
+          return;
+        }
+        
+        if (!date) {
+          alert('Please select a date.');
+          return;
+        }
+        
+        // Convert weeks since birth to year and week index
+        let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(this.selectedWeeksSinceBirth, this.birthDate);
+        if (!yearWeekInfo) {
+          alert('Error: Could not determine week information.');
+          return;
+        }
+        
+        // Validate that the date is within the selected week's range
+        let weekRange = getWeekDateRange(yearWeekInfo.weekIndex, yearWeekInfo.year);
+        let selectedDate = new Date(date);
+        
+        if (selectedDate < weekRange.startDate || selectedDate > weekRange.endDate) {
+          alert('The date must be within Week ' + (yearWeekInfo.weekIndex + 1) + ' (Monday to Sunday).');
+          return;
+        }
+        
+        if (this.editingMemoryId !== null) {
+          // Editing existing memory (title, text, date, and image)
+          // modalImageDataURL is set when user selects/changes image during edit
+          let savedMemoryId = this.editingMemoryId; // Store ID before clearing
+          editMemory(this.selectedWeeksSinceBirth, this.editingMemoryId, title, text, date, this.modalImageDataURL);
+          
+          // Clear editing state
+          this.editingMemoryId = null;
+          this.modalImageDataURL = null; // Clear image data after saving
+          
+          // Clear form and reset to initial state
+          resetFormToInitialState({ resetDate: true, resetButtons: true, clearImageData: true });
+          
+          // Return to view mode showing the edited memory
+          viewMemory(this.selectedWeeksSinceBirth, savedMemoryId);
+        } else {
+          // Adding new memory (with optional image)
+          addMemory(this.selectedWeeksSinceBirth, title, text, date, this.modalImageDataURLNew);
+          // Keep modal open, just refresh list and clear form
+          displayMemoriesList(this.selectedWeeksSinceBirth);
+          
+          // Reset form to initial state
+          resetFormToInitialState({ resetDate: true, resetButtons: false, clearImageData: true });
+          
+          // Focus on text input for next entry
+          const textInput = document.getElementById('modal-text-input');
+          if (textInput) textInput.focus();
+        }
+      }
+    }.bind(this));
+    
+    // Close modal when clicking outside of it
+    let modal = document.getElementById('entry-modal');
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        hideModal();
+      }
+    });
+    
+    // Prevent clicks on modal content from propagating to background
+    let modalContent = document.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.addEventListener('click', function(e) {
+        e.stopPropagation();
+      });
+    }
+  }
 }
 
-// Create a global instance for backward compatibility during refactoring
+// Global modal manager instance
 let modalManager = new ModalManager();
 
-// Keep utility functions outside class (they don't need instance state)
+// Utility functions (static helpers that don't need instance state)
 /**
  * formatDateForDisplay()
  * Formats a date string for display in the memory list (short format)
@@ -181,7 +345,7 @@ function setupImageInputHandler(imageInput, imagePreview, imageClearBtn, dataURL
             modalManager.modalImageDataURL = resizedDataURL;
           } else if (dataURLVar === 'modalImageDataURLNew') {
             if (modalManager.editingMemoryId !== null) {
-              modalManager.modalImageDataURL = resizedDataURL; // For editing
+              modalManager.modalImageDataURL = resizedDataURL;    // For editing
             } else {
               modalManager.modalImageDataURLNew = resizedDataURL; // For new memory
             }
@@ -214,202 +378,31 @@ function setupImageInputHandler(imageInput, imagePreview, imageClearBtn, dataURL
         modalManager.modalImageDataURL = null;
       } else if (dataURLVar === 'modalImageDataURLNew') {
         if (modalManager.editingMemoryId !== null) {
-          modalManager.modalImageDataURL = null; // null means "remove image" when editing
+          modalManager.modalImageDataURL = null;     // null means "remove image" when editing
         } else {
-          modalManager.modalImageDataURLNew = null; // For new memory
+          modalManager.modalImageDataURLNew = null;  // For new memory
         }
       }
       
-      if (imagePreview) {
-        imagePreview.removeAttribute('src');
-        imagePreview.style.display = 'none';
-      }
-      if (imageInput) {
-        imageInput.value = '';
-      }
-      imageClearBtn.style.display = 'none';
+      clearImagePreviewControls(imagePreview, imageInput, imageClearBtn);
     });
   }
 }
 
 /**
- * setupModalListeners()
- * Sets up event listeners for the modal Save and Cancel buttons
+ * clearImagePreviewControls()
+ * Helper to hide preview, reset input value, and hide clear button
  */
-function setupModalListeners() {
-  // Cancel button
-  let cancelBtn = document.getElementById('modal-cancel-btn');
-  cancelBtn.addEventListener('click', function() {
-    // If editing, return to view mode; otherwise close modal
-    if (modalManager.editingMemoryId !== null && modalManager.selectedWeeksSinceBirth !== null) {
-      // Get the memory to restore its date before clearing
-      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(modalManager.selectedWeeksSinceBirth, modalManager.birthDate);
-      let memoryDate = null;
-      if (yearWeekInfo) {
-        let yearDataForWeek = loadData(yearWeekInfo.year);
-        if (yearDataForWeek && yearDataForWeek[yearWeekInfo.weekIndex].memories) {
-          let memory = yearDataForWeek[yearWeekInfo.weekIndex].memories.find(m => m.id === modalManager.editingMemoryId);
-          if (memory) {
-            memoryDate = memory.date;
-          }
-        }
-      }
-      
-      // Clear form fields (title, text, image) - but preserve date to avoid invalid state
-      const titleInput = document.getElementById('memory-title-input');
-      const textInput = document.getElementById('modal-text-input');
-      if (titleInput) titleInput.value = '';
-      if (textInput) textInput.value = '';
-      
-      // Clear image preview and inputs
-      modalManager.modalImageDataURL = undefined; // Explicitly set to undefined for editing
-      const imagePreviewNew = document.getElementById('memory-image-preview-new');
-      const imageInputNew = document.getElementById('memory-image-input-new');
-      const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
-      if (imagePreviewNew) {
-        imagePreviewNew.removeAttribute('src');
-        imagePreviewNew.style.display = 'none';
-      }
-      if (imageInputNew) imageInputNew.value = '';
-      if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
-      
-      // Restore the memory's date to avoid invalid date state
-      const dateInput = document.getElementById('memory-date-input');
-      if (dateInput && memoryDate) {
-        dateInput.value = memoryDate;
-      }
-      
-      // Return to view mode showing the memory being edited
-      viewMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId);
-    } else {
-      // Not editing, just close the modal
-      hideModal();
-    }
-  });
-  
-  // Image input handlers (for image edit section)
-  const imageInput = document.getElementById('memory-image-input');
-  const imagePreview = document.getElementById('memory-image-preview');
-  const imageClearBtn = document.getElementById('memory-image-clear-btn');
-  setupImageInputHandler(imageInput, imagePreview, imageClearBtn, 'modalImageDataURL');
-
-  // Image input handlers (for input section - used for both new and editing)
-  const imageInputNew = document.getElementById('memory-image-input-new');
-  const imagePreviewNew = document.getElementById('memory-image-preview-new');
-  const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
-  setupImageInputHandler(imageInputNew, imagePreviewNew, imageClearBtnNew, 'modalImageDataURLNew');
-  
-  // View memory close button
-  let closeViewBtn = document.getElementById('memory-close-view-btn');
-  if (closeViewBtn) {
-    closeViewBtn.addEventListener('click', function() {
-      // Return to list view with all memories
-      showMemoryInputSection(false); // Show list when closing view
-      modalManager.editingMemoryId = null;
-      // Refresh the memories list to show updated data
-      if (modalManager.selectedWeeksSinceBirth !== null) {
-        displayMemoriesList(modalManager.selectedWeeksSinceBirth);
-      }
-    });
+function clearImagePreviewControls(imagePreview, imageInput, imageClearBtn) {
+  if (imagePreview) {
+    imagePreview.removeAttribute('src');
+    imagePreview.style.display = 'none';
   }
-
-  // Edit content button (title, text, date)
-  let editContentBtn = document.getElementById('memory-edit-content-btn');
-  if (editContentBtn) {
-    editContentBtn.addEventListener('click', function() {
-      if (modalManager.editingMemoryId !== null && modalManager.selectedWeeksSinceBirth !== null) {
-        startEditingMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId);
-      }
-    });
+  if (imageInput) {
+    imageInput.value = '';
   }
-
-  // Save button
-  let saveBtn = document.getElementById('modal-save-btn');
-  saveBtn.addEventListener('click', function() {
-    if (modalManager.selectedWeeksSinceBirth !== null && modalManager.birthDate) {
-      let titleInput = document.getElementById('memory-title-input');
-      let textInput = document.getElementById('modal-text-input');
-      let dateInput = document.getElementById('memory-date-input');
-      let title = titleInput ? titleInput.value.trim() : '';
-      let text = textInput.value.trim();
-      let date = dateInput.value;
-      
-      if (!title) {
-        alert('Please enter a title.');
-        return;
-      }
-      
-      if (!text) {
-        alert('Please enter a memory or goal.');
-        return;
-      }
-      
-      if (!date) {
-        alert('Please select a date.');
-        return;
-      }
-      
-      // Convert weeks since birth to year and week index
-      let yearWeekInfo = getYearAndWeekIndexFromWeeksSinceBirth(modalManager.selectedWeeksSinceBirth, modalManager.birthDate);
-      if (!yearWeekInfo) {
-        alert('Error: Could not determine week information.');
-        return;
-      }
-      
-      // Validate that the date is within the selected week's range
-      let weekRange = getWeekDateRange(yearWeekInfo.weekIndex, yearWeekInfo.year);
-      let selectedDate = new Date(date);
-      
-      if (selectedDate < weekRange.startDate || selectedDate > weekRange.endDate) {
-        alert('The date must be within Week ' + (yearWeekInfo.weekIndex + 1) + ' (Monday to Sunday).');
-        return;
-      }
-      
-      if (modalManager.editingMemoryId !== null) {
-        // Editing existing memory (title, text, date, and image)
-        // modalImageDataURL is set when user selects/changes image during edit
-        let savedMemoryId = modalManager.editingMemoryId; // Store ID before clearing
-        editMemory(modalManager.selectedWeeksSinceBirth, modalManager.editingMemoryId, title, text, date, modalManager.modalImageDataURL);
-        
-        // Clear editing state
-        modalManager.editingMemoryId = null;
-        modalManager.modalImageDataURL = null; // Clear image data after saving
-        
-        // Clear form and reset to initial state
-        resetFormToInitialState({ resetDate: true, resetButtons: true, clearImageData: true });
-        
-        // Return to view mode showing the edited memory
-        viewMemory(modalManager.selectedWeeksSinceBirth, savedMemoryId);
-      } else {
-        // Adding new memory (with optional image)
-        addMemory(modalManager.selectedWeeksSinceBirth, title, text, date, modalManager.modalImageDataURLNew);
-        // Keep modal open, just refresh list and clear form
-        displayMemoriesList(modalManager.selectedWeeksSinceBirth);
-        
-        // Reset form to initial state
-        resetFormToInitialState({ resetDate: true, resetButtons: false, clearImageData: true });
-        
-        // Focus on text input for next entry
-        const textInput = document.getElementById('modal-text-input');
-        if (textInput) textInput.focus();
-      }
-    }
-  });
-  
-  // Close modal when clicking outside of it
-  let modal = document.getElementById('entry-modal');
-  modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-      hideModal();
-    }
-  });
-  
-  // Prevent clicks on modal content from propagating to background
-  let modalContent = document.querySelector('.modal-content');
-  if (modalContent) {
-    modalContent.addEventListener('click', function(e) {
-      e.stopPropagation();
-    });
+  if (imageClearBtn) {
+    imageClearBtn.style.display = 'none';
   }
 }
 
@@ -454,12 +447,7 @@ function resetFormToInitialState(options = {}) {
   const imageInputNew = document.getElementById('memory-image-input-new');
   const imageClearBtnNew = document.getElementById('memory-image-clear-btn-new');
   
-  if (imagePreviewNew) {
-    imagePreviewNew.removeAttribute('src');
-    imagePreviewNew.style.display = 'none';
-  }
-  if (imageInputNew) imageInputNew.value = '';
-  if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
+  clearImagePreviewControls(imagePreviewNew, imageInputNew, imageClearBtnNew);
   
   // Clear image data variables if requested
   if (clearImageData) {
@@ -501,16 +489,7 @@ function hideModal() {
   const imagePreview = document.getElementById('memory-image-preview');
   const imageClearBtn = document.getElementById('memory-image-clear-btn');
   
-  if (imagePreview) {
-    imagePreview.removeAttribute('src');
-    imagePreview.style.display = 'none';
-  }
-  if (imageInput) {
-    imageInput.value = '';
-  }
-  if (imageClearBtn) {
-    imageClearBtn.style.display = 'none';
-  }
+  clearImagePreviewControls(imagePreview, imageInput, imageClearBtn);
 
   // Show input section, hide view and image edit sections
   showMemoryInputSection(false);
@@ -721,7 +700,7 @@ function displayMemoriesList(weeksSinceBirth) {
       </div>
     `;
     
-    // Make entire item clickable to view
+    // Entire item is clickable to view memory
     memoryItem.addEventListener('click', function() {
       viewMemory(weeksSinceBirth, memory.id);
     });
@@ -923,12 +902,7 @@ function startEditingMemory(weeksSinceBirth, memoryId) {
     }
   } else {
     // No existing image, clear preview
-    if (imagePreviewNew) {
-      imagePreviewNew.removeAttribute('src');
-      imagePreviewNew.style.display = 'none';
-    }
-    if (imageInputNew) imageInputNew.value = '';
-    if (imageClearBtnNew) imageClearBtnNew.style.display = 'none';
+    clearImagePreviewControls(imagePreviewNew, imageInputNew, imageClearBtnNew);
   }
   
   // Show input section and hide view section (hide list when editing)

@@ -2,7 +2,7 @@
  * App Class
  * Encapsulates all application state and logic
  * Note: p5.js requires setup() and draw() to be global functions,
- * so they delegate to this App instance
+ * so we delegate to this App instance for organization
  */
 class App {
   constructor() {
@@ -14,12 +14,12 @@ class App {
     this.osc = null;
     this.env = null;
     this.lastTickTime = 0;
-    this.TICK_GAP_MS = 80; // Small cooldown between sounds
+    this.TICK_GAP_MS = 80;   // Small cooldown between sounds
     
     // Background music
     this.bgMusic = null;
     this.musicPlaying = false;
-    this.musicVolume = 0.1; // 10% volume
+    this.musicVolume = 0.1;  // 10% volume
     this.musicStarted = false;
     
     // Week and year navigation
@@ -42,20 +42,72 @@ class App {
     
     // Grid Layout Parameters
     this.numRows = 7;
-    this.circleSize = 100; // Made variable for responsive design
+    this.circleSize = 100;                // Made variable for responsive design
     this.xSpacing = this.circleSize + 30;
-    this.ySpacing = this.circleSize; // Use a tighter vertical spacing for the honeycomb look
+    this.ySpacing = this.circleSize;      // Use a tighter vertical spacing for the honeycomb look
     this.backgroundColour = "#F7F6E4";
     
     // Year transition state
     this.yearTransition = {
       active: false,
       alpha: 0,
-      duration: 300, // milliseconds for each fade (out + in = 600ms total)
+      duration: 300,    // milliseconds for each fade (out + in = 600ms total)
       startTime: 0,
       targetYear: null,
-      phase: 'none' // 'none', 'fadeOut', 'fadeIn'
+      phase: 'none'     // 'none', 'fadeOut', 'fadeIn'
     };
+  }
+  
+  /**
+   * getWeeksSinceBirth()
+   * Calculates weeks since birth for a given week index and year
+   * @param {number} weekIndex - The week index (0-51)
+   * @param {number} year - The year to calculate for
+   * @param {Date} [providedBirthDate] - Optional birth date (uses this.birthDate if not provided)
+   * @returns {number} - Weeks since birth
+   */
+  getWeeksSinceBirth(weekIndex, year, providedBirthDate) {
+    // Use provided birthDate or this.birthDate
+    let dateToUse = providedBirthDate || this.birthDate;
+    if (!dateToUse) return weekIndex + 1;
+    
+    // Use provided year or this.currentDisplayYear, or fallback to current year
+    if (year === undefined) {
+      year = this.currentDisplayYear || new Date().getFullYear();
+    }
+    
+    // Use the same logic as DateUtils version
+    let weekStartDate = getDateFromWeekIndex(weekIndex, year);
+    let diffTime = weekStartDate.getTime() - dateToUse.getTime();
+    let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    let weeksSinceBirth = Math.floor(diffDays / 7);
+    
+    return Math.max(0, weeksSinceBirth);
+  }
+  
+  /**
+   * refreshCircleData()
+   * Refreshes the data for all circles after memory changes
+   * @param {number} year - The year to refresh data for
+   */
+  refreshCircleData(year) {
+    // Only refresh if we're viewing the same year
+    if (year !== this.currentDisplayYear) {
+      return;
+    }
+    
+    // Reload the year data
+    this.yearData = loadData(year);
+    
+    // Update each circle's data reference and recalculate state
+    let today = new Date();
+    for (let week of this.weeks) {
+      if (week.id >= 0 && week.id < this.yearData.length) {
+        week.data = this.yearData[week.id];
+        // Recalculate state in case data changed
+        week.updateState(this.currentDisplayYear, this.birthDate, today);
+      }
+    }
   }
 }
 
@@ -83,33 +135,6 @@ function calculateAgeAndWeeks() {
     app.userAge = Math.floor(diffDays / 365.25);
     app.weeksLived = Math.floor(diffDays / 7);
   }
-}
-
-/**
- * getWeeksSinceBirth()
- * Wrapper that uses DateUtils function with global birthDate
- * Accepts 2 or 3 parameters for compatibility
- * @param {number} weekIndex - The week index (0-51)
- * @param {number} year - The year to calculate for (defaults to currentDisplayYear)
- * @param {Date} [providedBirthDate] - Optional birth date (uses global birthDate if not provided)
- */
-function getWeeksSinceBirth(weekIndex, year, providedBirthDate) {
-  // Use provided birthDate or app birthDate
-  let dateToUse = providedBirthDate || app.birthDate;
-  if (!dateToUse) return weekIndex + 1;
-  
-  // Use provided year or app currentDisplayYear, or fallback to current year
-  if (year === undefined) {
-    year = app.currentDisplayYear || new Date().getFullYear();
-  }
-  
-  // Use the same logic as DateUtils version
-  let weekStartDate = getDateFromWeekIndex(weekIndex, year);
-  let diffTime = weekStartDate.getTime() - dateToUse.getTime();
-  let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  let weeksSinceBirth = Math.floor(diffDays / 7);
-  
-  return Math.max(0, weeksSinceBirth);
 }
 
 /**
@@ -144,13 +169,13 @@ function calculateResponsiveSizes() {
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
-  // Set font for all p5.js text (Inter - open source font)
+  // Set font for all p5.js text (Inter - open sauce font)
   textFont('Inter');
 
-  // Calculate responsive sizes (after canvas is created)
+  // Calculate responsive sizes
   calculateResponsiveSizes();
   
-  // Note: circleSize, xSpacing, ySpacing are now stored in app properties
+  // Layout parameters stored in app properties for responsive design
 
   // Initialize starting page
   app.startingPage = new StartingPage();
@@ -176,27 +201,27 @@ function setup() {
 
   app.env = new p5.Envelope(0.001, 0.25, 0.04, 0.0);
 
-  // --- Background Music Setup ---
-  setupBackgroundMusic();
-  startBackgroundMusic();
+  // --- Background Music Setup --- (From AudioManager.js)
+  audioManager.setupBackgroundMusic();
+  audioManager.startBackgroundMusic();
   
-  // --- Modal Event Listeners ---
-  setupModalListeners();
+  // --- Modal Event Listeners --- (From ModalManager.js)
+  modalManager.setupListeners();
   
   // Initialize modalManager with birthDate (will be set when birthDate is available)
   if (app.birthDate) {
     modalManager.setBirthDate(app.birthDate);
   }
-  modalManager.setRefreshCallback(refreshCircleData);
+  modalManager.setRefreshCallback(app.refreshCircleData.bind(app));
   
   // --- Music Toggle Button Setup ---
   let musicToggleBtn = document.getElementById('music-toggle-btn');
   if (musicToggleBtn) {
     musicToggleBtn.addEventListener('click', function() {
-      toggleBackgroundMusic();
+      audioManager.toggleBackgroundMusic();
     });
     // Initialize icon state
-    updateMusicIcon();
+    audioManager.updateMusicIcon();
   }
   
   // --- Home Button Setup ---
@@ -231,7 +256,7 @@ function setup() {
   
   // Initialize rain particles - create a few hundred for subtle background effect
   app.rainParticles = [];
-  let numParticles = 3000; // Adjust for desired density
+  let numParticles = 2_500; // Adjust for desired density
   for (let i = 0; i < numParticles; i++) {
     app.rainParticles.push(new RainParticle());
   }
@@ -284,7 +309,7 @@ function draw() {
     if (homeBtn) {
       homeBtn.style.display = 'none';
     }
-    // Ensure navigation buttons are hidden on starting page
+    // Navigation buttons hidden on starting page
     updateNavigationButtons();
     return;
   }
@@ -391,10 +416,10 @@ function isClickOnCircle(week) {
 }
 
 function mousePressed() {
-  // Don't process clicks if modal is open
+  // Skip click processing if modal is open
   if (isModalOpen()) return;
   
-  // Don't process clicks if clicking on a button
+  // Skip click processing if clicking on a button
   if (isButtonClick()) return;
 
   // Handle starting page clicks
@@ -405,7 +430,7 @@ function mousePressed() {
 
   // Unlock audio on first user interaction
   userStartAudio();
-  startBackgroundMusic();
+  audioManager.startBackgroundMusic();
   
   // Check if a goal countdown card was clicked
   if (app.goalCountdown) {
@@ -428,7 +453,7 @@ function mousePressed() {
         }
         // View the specific memory
         viewMemory(clickedGoal.weeksSinceBirth, clickedGoal.memoryId);
-        return; // Don't check for circle clicks
+        return; // Skip circle click detection
       }
     }
   }
@@ -482,7 +507,7 @@ function showWeekModal(week) {
     ? `Week ${yearWeekInfo.weekIndex + 1} - Goals`
     : `Week ${yearWeekInfo.weekIndex + 1} - Memories`;
   
-  // Reset editing state (we're adding new, not editing)
+  // Reset editing state
   modalManager.editingMemoryId = null;
   
   // Update save button text
@@ -506,7 +531,7 @@ function showWeekModal(week) {
     cancelBtn.textContent = 'Close';
   }
   
-  // Ensure input section is shown, view and image edit sections are hidden
+  // Show input section, hide view and image edit sections
   if (typeof showMemoryInputSection === 'function') {
     showMemoryInputSection();
   }
@@ -558,7 +583,7 @@ function clearAllHoverStates() {
  * showModal()
  * Displays the modal and disables canvas interaction
  * @param {HTMLElement} modal - The modal element
- * @param {HTMLElement} textInput - The text input element (for backward compatibility)
+ * @param {HTMLElement} textInput - The text input element
  */
 function showModal(modal, textInput) {
   modal.style.display = 'flex';
@@ -600,34 +625,9 @@ function returnToHome() {
   app.weeksLived = 0;
   app.showStartingPage = true;
   
-  // Don't clear the saved birth date - allow user to re-enter if they want
+  // Keep saved birth date to allow user to re-enter if desired
   // Reset starting page to show the intro sequence again
   app.startingPage = new StartingPage();
-}
-
-/**
- * refreshCircleData()
- * Refreshes the data for all circles after memory changes
- * @param {number} year - The year to refresh data for
- */
-function refreshCircleData(year) {
-  // Only refresh if we're viewing the same year
-  if (year !== app.currentDisplayYear) {
-    return;
-  }
-  
-  // Reload the year data
-  app.yearData = loadData(year);
-  
-  // Update each circle's data reference and recalculate state
-  let today = new Date();
-  for (let week of app.weeks) {
-    if (week.id >= 0 && week.id < app.yearData.length) {
-      week.data = app.yearData[week.id];
-      // Recalculate state in case data changed
-      week.updateState(app.currentDisplayYear, app.birthDate, today);
-    }
-  }
 }
 
 /**
@@ -643,11 +643,11 @@ function navigateToYear(year) {
   
   // Prevent navigating to years before birth year
   if (year < birthYear) {
-    console.log(`Cannot navigate to year ${year} - before birth year ${birthYear}`);
+    console.error(`Cannot navigate to year ${year} - before birth year ${birthYear}`);
     return;
   }
   
-  // Don't navigate if already transitioning or already on that year
+  // Skip navigation if already transitioning or already on that year
   if (app.yearTransition.active || year === app.currentDisplayYear) {
     return;
   }
@@ -769,11 +769,11 @@ function initializeMainApp(year) {
     year = new Date().getFullYear();
   }
   
-  // Ensure we don't start before birth year
+  // Prevent navigation before birth year
   if (app.birthDate) {
     let birthYear = app.birthDate.getFullYear();
     if (year < birthYear) {
-      console.log(`Cannot initialize to year ${year} - before birth year ${birthYear}. Using birth year instead.`);
+      console.error(`Cannot initialize to year ${year} - before birth year ${birthYear}. Using birth year instead.`);
       year = birthYear;
     }
   }
@@ -784,9 +784,9 @@ function initializeMainApp(year) {
   let isoWeekInfo = getISOWeekNumber(now);
   app.currentWeekIndex = isoWeekInfo.weekNumber - 1; // Convert to 0-based index
   
-  // Only highlight current week if viewing the ISO year (which handles year boundaries correctly)
+  // Only highlight current week if viewing the ISO year
   if (year !== isoWeekInfo.year) {
-    app.currentWeekIndex = -1; // No current week highlight for past/future years
+    app.currentWeekIndex = -1;                       // No current week highlight for past/future years
   }
 
   app.yearData = loadData(year);
@@ -815,7 +815,7 @@ function initializeMainApp(year) {
     for (let c = 0; c < numCols; c++) {
       let x = startX + xOffset + c * app.xSpacing;
       let dataForThisWeek = app.yearData[weekID];
-      let weeksSinceBirth = getWeeksSinceBirth(weekID, year);
+      let weeksSinceBirth = app.getWeeksSinceBirth(weekID, year);
       let newWeek = new WeekCircle(x, y, app.circleSize, weekID, weeksSinceBirth, dataForThisWeek);
 
       // Calculate and cache state once when circle is created

@@ -16,9 +16,9 @@ class StartingPage {
     this.currentQuestionIndex = 0;
     
     // Animation timing (in milliseconds)
-    this.fadeInDuration = 1500;  // 1.5s
+    this.fadeInDuration = 1500;    // 1.5s
     this.holdDuration = 3000;      // 3s
-    this.fadeOutDuration = 1500;  // 1.5s
+    this.fadeOutDuration = 1500;   // 1.5s
     this.totalQuestionDuration = this.fadeInDuration + this.holdDuration + this.fadeOutDuration;
     
     // Animation state
@@ -28,7 +28,7 @@ class StartingPage {
     
     // Iris wipe transition
     this.transitionStartTime = 0;
-    this.transitionDuration = 1500; // 1.5s transition
+    this.transitionDuration = 1500;      // 1.5s transition
     this.maxRadius = 0;
     
     // DOB entry
@@ -42,7 +42,7 @@ class StartingPage {
     
     // Background colors
     this.introBackgroundColor = "#191919"; // Darker grey
-    this.mainBackgroundColor = "#F7F6E4"; // Light beige
+    this.mainBackgroundColor = "#F7F6E4";  // Light beige
   }
 
   /**
@@ -90,10 +90,10 @@ class StartingPage {
       return;
     }
     
-    // Initialize start time for current question (only on first frame of each question)
+    // Initialize start time for current question
     if (this.questionStartTime === 0) {
       this.questionStartTime = millis();
-      // Ensure we start with at least a tiny alpha to make text visible immediately
+      // Initialize with minimal alpha to make text visible immediately
     }
     
     let elapsed = millis() - this.questionStartTime;
@@ -121,7 +121,7 @@ class StartingPage {
     push();
     noStroke();
     
-    // Responsive text size (avoid naming conflict with p5.js textSize function)
+    // Responsive text size
     let fontSize = windowWidth < 600 ? 18 : windowWidth < 900 ? 24 : 32;
     textSize(fontSize);
     textStyle(ITALIC);
@@ -221,11 +221,11 @@ class StartingPage {
     push();
     noStroke();
     
-    // Responsive text size (avoid naming conflict with p5.js textSize function)
+    // Responsive text size
     let fontSize = windowWidth < 600 ? 20 : windowWidth < 900 ? 28 : 36;
     textSize(fontSize);
     textStyle(ITALIC);
-    textAlign(LEFT, CENTER); // Set alignment once and keep it consistent
+    textAlign(LEFT, CENTER);
     
     // Split text to color "Momentry" differently
     let textBefore = "Your ";
@@ -250,14 +250,14 @@ class StartingPage {
     // 1. Draw "Your " first (leftmost)
     fill(255, 255, 255, alpha);
     text(textBefore, currentX, yPos);
-    currentX += textWidthBefore; // Move position right
+    currentX += textWidthBefore;      // Move position right
     
-    // 2. Draw "Momentry" second (after "Your ") with alpha fade
-    fill(244, 205, 127, alpha); // #f4cd7f with alpha
+    // 2. Draw "Momentry" second with alpha fade
+    fill(244, 205, 127, alpha);       // #f4cd7f with alpha
     text(textMomentry, currentX, yPos);
-    currentX += textWidthMomentry; // Move position right
+    currentX += textWidthMomentry;    // Move position right
     
-    // 3. Draw " begins." third (after "Momentry")
+    // 3. Draw " begins." third
     fill(255, 255, 255, alpha);
     text(textAfter, currentX, yPos);
     
@@ -269,11 +269,11 @@ class StartingPage {
       textAlign(CENTER, CENTER);
       
       // Flashing effect (pulse between 100 and 255 alpha) - slower
-      let flashSpeed = 0.4; // Slower speed of flash
+      let flashSpeed = 0.4; // Flashing speed
       let flashAlpha = 127.5 + sin(millis() / 1000 * flashSpeed * TWO_PI) * 127.5;
-      fill(150, 150, 150, flashAlpha * (alpha / 255)); // Grey color with flashing
+      fill(150, 150, 150, flashAlpha * (alpha / 255));  // Grey color with flashing
       
-      let hintY = yPos + fontSize * 1.5; // Position below main text
+      let hintY = yPos + fontSize * 1.5;                // Position below main text
       text("click to begin", width / 2, hintY);
     }
     
@@ -290,7 +290,7 @@ class StartingPage {
       this.dobFormVisible = true;
     }
     
-    // Form is handled by HTML/CSS, just ensure it's visible
+    // Form is handled by HTML/CSS
     let formContainer = document.getElementById('dob-entry-form');
     if (formContainer) {
       formContainer.style.display = 'flex';
@@ -368,11 +368,11 @@ class StartingPage {
       }
     };
     // Allow Enter key to submit
-    input.onkeypress = (e) => {
+    input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         this.handleDOBSubmit();
       }
-    };
+    });
     formContainer.appendChild(input);
     this.dobInput = input;
     
@@ -481,7 +481,7 @@ class StartingPage {
     // Draw dark background
     background(this.introBackgroundColor);
     
-    // Draw expanding light circle (iris wipe effect)
+    // Draw iris wipe effect
     push();
     noStroke();
     fill(this.mainBackgroundColor);
@@ -535,9 +535,9 @@ class StartingPage {
    */
   getSkipButtonBounds() {
     let padding = 20;
-    // Make clickable area larger and more forgiving
-    let textWidth = 80; // Larger clickable area
-    let textHeight = 30; // Larger clickable area
+    // Clickable area is larger for better UX
+    let textWidth = 80;    // Larger clickable area
+    let textHeight = 30;   // Larger clickable area
     return {
       x: width - padding - textWidth,
       y: height - padding - textHeight,

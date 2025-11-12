@@ -10,33 +10,33 @@ class RainParticle {
    */
   constructor() {
     // Position - start at random x, random y across entire canvas (including off-screen above)
-    // This makes it appear as if it has always been raining
+    // Starting particles above canvas creates continuous rain effect
     this.x = random(0, width);
     this.y = random(-200, height); // Spread across entire canvas height
     
     // Movement properties
-    this.speed = random(2, 4); // Faster fall for more dynamic rain
-    this.length = random(8, 20); // Short to medium length lines
+    this.speed = random(2, 7);     // Fall speed range
+    this.length = random(8, 20);   // Short to medium length lines
     
     // Visual properties - subtle and zen-like
-    this.alpha = random(20, 60); // Low alpha for subtlety (0-255)
+    this.alpha = random(20, 60);   // Low alpha for subtlety (0-255)
     this.strokeWeight = random(0.5, 1.5); // Thin lines
     
     // Umbrella repulsion properties
-    this.repulsionRadius = 70; // Distance at which mouse affects particle (umbrella size)
-    this.repulsionStrength = 1.3; // Bounce force for umbrella effect
-    this.minBounceDistance = 10; // Minimum distance - particles bounce away more strongly when closer
+    this.repulsionRadius = 70;     // Distance at which mouse affects particle (umbrella size)
+    this.repulsionStrength = 2.3;  // Bounce force for umbrella effect
+    this.minBounceDistance = 20;   // Minimum distance - particles bounce away more strongly when closer
     
     // Sticking/dripping properties
-    this.isStuck = false; // Whether particle is stuck to umbrella edge
+    this.isStuck = false;                          // Whether particle is stuck to umbrella edge
     this.stickRadius = this.repulsionRadius * 0.9; // Radius where particles can stick (very near edge)
-    this.dripSpeed = 0.5; // Speed when dripping off edge
-    this.stickAngle = null; // Angle where particle is stuck on umbrella
-    this.willStick = random() > 0.5; // Random chance - some particles stick, some bounce
+    this.dripSpeed = 0.5;                          // Speed when dripping off edge
+    this.stickAngle = null;                        // Angle where particle is stuck on umbrella
+    this.willStick = random() > 0.5;               // Random chance - some particles stick, some bounce
     
     // Visual angle of the rain drop line (PI/2 = vertical, 0 = horizontal)
-    this.lineAngle = PI / 2; // Start vertical
-    this.releaseSide = null; // Track which side the particle last dripped from
+    this.lineAngle = PI / 2;       // Start vertical
+    this.releaseSide = null;       // Track which side the particle last dripped from
     
     // Stick animation tracking
     this.stickStartAngle = null;
@@ -49,7 +49,7 @@ class RainParticle {
    * Updates particle position and handles wrapping and cursor repulsion
    */
   update() {
-    // Umbrella is positioned above the cursor (cursor is at bottom/handle)
+    // Umbrella is positioned above the cursor
     // Only particles above the cursor should be affected
     let isAboveCursor = this.y < mouseY;
     let distanceToMouse = dist(this.x, this.y, mouseX, mouseY);
@@ -67,7 +67,7 @@ class RainParticle {
       let normalizedDistance = distanceToMouse / this.repulsionRadius;
       let angle = atan2(this.y - mouseY, this.x - mouseX);
       
-      // For umbrella above cursor: "bottom edge" is near the cursor (lower part of arc)
+      // For umbrella above cursor: "bottom edge" is near the cursor
       // Particles near the cursor (small distance) are at the bottom edge
       let nearBottomEdge = distanceToMouse < this.stickRadius * 1.2; // Near cursor = bottom of umbrella
       
@@ -81,10 +81,12 @@ class RainParticle {
         // Store the almost-flat angle for this particle (consistent value)
         const flatAngle = PI / 2.1;
         this.stickInitialLineAngle = currentIsLeftSide ? PI / 2 + flatAngle : PI / 2 - flatAngle;
+        // Immediately set line angle to flat when first sticking
+        this.lineAngle = this.stickInitialLineAngle;
       }
       
       if (this.isStuck) {
-        // Particle is stuck to umbrella edge - slide toward nearest rim edge, not the center
+        // Particle is stuck to umbrella edge - slide toward nearest rim edge
         let currentIsLeftSide = this.x < mouseX;
         let slideSpeed = 0.025;
         if (currentIsLeftSide) {
@@ -124,7 +126,9 @@ class RainParticle {
           // Dripped off - release it
           this.isStuck = false;
           this.stickAngle = null;
-          this.releaseSide = currentIsLeftSide ? "left" : "right";
+          // Always exit sticking in a vertical orientation to avoid angle jumps
+          this.lineAngle = PI / 2;
+          this.releaseSide = null;
           this.stickStartAngle = null;
           this.stickTargetAngle = null;
           this.stickInitialLineAngle = null;
@@ -132,14 +136,13 @@ class RainParticle {
           let releaseAngle = reachedLeftEdge ? -PI / 1.2 : reachedRightEdge ? -PI / 5 : angle;
           this.x += cos(releaseAngle) * 1.2;
           this.y += this.speed * 0.6;
-          // Line angle will gradually return to vertical in else block
         }
       } else {
-        // Particle not stuck - apply stronger bounce/deflection away from umbrella
-        // Ensure all particles are repelled, not just some
+        // Particle not stuck - apply bounce/deflection away from umbrella
+        // All particles within repulsion radius are repelled
         let bounceForce = this.repulsionStrength * (1 - normalizedDistance);
         
-        // Stronger force when closer to ensure particles don't pass through
+        // Stronger force when closer to prevent particles passing through umbrella
         if (distanceToMouse < this.minBounceDistance) {
           bounceForce *= 3.5; // Much stronger when very close
         } else {
@@ -147,27 +150,36 @@ class RainParticle {
         }
         
         // Bounce away from cursor (upward and outward) - stronger horizontal component
-        let bounceX = cos(angle) * bounceForce * 3.5; // Increased multiplier
-        let bounceY = sin(angle) * bounceForce * 2.0; // Increased multiplier
+        let bounceX = cos(angle) * bounceForce * 5.5;
+        let bounceY = sin(angle) * bounceForce * 3.0;
         
-        // Ensure particle is pushed away from umbrella
+        // Apply bounce forces
         this.x += bounceX;
         this.y += bounceY;
         
-        // Prevent particle from falling through by pushing it up if it's too close
+        // Additional upward push when very close to prevent particles falling through
         if (distanceToMouse < this.repulsionRadius * 0.5) {
           this.y -= this.speed * 0.8; // Push upward more strongly
         }
         
-        // Slight tilt based on which side particle is on
-        // Bottom of line should lean left for left side, right for right side
-        // Make it almost flat (almost horizontal) when hitting the top of umbrella
+        // Tilt based on which side particle is on
+        // Bottom of line leans left for left side, right for right side
+        // Angle approaches horizontal when hitting the top of umbrella
         const flatAngle = PI / 2.1;
         let closeness = constrain(1 - normalizedDistance, 0, 1);
         let flatTargetAngle = (this.x < mouseX) ? PI / 2 + flatAngle : PI / 2 - flatAngle;
         let bounceTargetAngle = lerp(PI / 2, flatTargetAngle, pow(closeness, 0.6));
         let bounceSmoothing = lerp(0.25, 0.75, closeness);
         this.lineAngle = lerp(this.lineAngle, bounceTargetAngle, bounceSmoothing);
+        
+        // Move along the direction implied by the current line angle
+        // This creates a smooth parabolic trajectory as the angle lerps back to vertical
+        let desiredDX = cos(this.lineAngle) * currentSpeed;
+        let desiredDY = sin(this.lineAngle) * currentSpeed;
+        // We already applied vertical fall (0, currentSpeed) earlier,
+        // so add the delta needed to follow the angled path.
+        this.x += desiredDX;
+        this.y += (desiredDY - currentSpeed);
       }
     } else {
       // Not interacting with umbrella - gradually return to vertical
@@ -176,20 +188,26 @@ class RainParticle {
         const flatAngle = PI / 2.1;
         let expectedAngle = this.releaseSide === "left" ? PI / 2 + flatAngle : PI / 2 - flatAngle;
         
-        // Ensure we're starting from the correct tilted angle
+        // Reset to correct tilted angle if line angle is on wrong side
         if ((this.releaseSide === "left" && this.lineAngle < PI / 2) ||
             (this.releaseSide === "right" && this.lineAngle > PI / 2)) {
           this.lineAngle = expectedAngle;
         }
         
-        this.lineAngle = lerp(this.lineAngle, PI / 2, 0.08);
+        this.lineAngle = lerp(this.lineAngle, PI / 2, 0.03);
         if (abs(this.lineAngle - PI / 2) < 0.04) {
           this.releaseSide = null;
         }
       } else {
-        // Smoothly lerp back to vertical (PI/2)
-        this.lineAngle = lerp(this.lineAngle, PI / 2, 0.1);
+        // Smoothly lerp back to vertical (PI/2) - slower for more natural trajectory
+        this.lineAngle = lerp(this.lineAngle, PI / 2, 0.04);
       }
+      
+      // Continue moving along the current angle so the trajectory matches the visual tilt
+      let desiredDX = cos(this.lineAngle) * this.speed;
+      let desiredDY = sin(this.lineAngle) * this.speed;
+      this.x += desiredDX;
+      this.y += (desiredDY - this.speed);
       
       // Reset stuck state if particle moves away or is below cursor
       if (this.isStuck) {

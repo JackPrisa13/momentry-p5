@@ -16,12 +16,12 @@ function getISOWeekNumber(date) {
   let d = new Date(date.getTime());
   
   // Set to nearest Thursday: current date + 4 - current day number
-  // Make Sunday's day number 7
+  // Sunday's day number is 7 (ISO week standard)
   let dayNum = d.getDay() || 7;
   d.setDate(d.getDate() + 4 - dayNum);
   
   // The year of the Thursday determines the ISO week year
-  // This handles cases where week 1 of a year starts in December of previous year
+  // Handles cases where week 1 of a year starts in December of previous year
   let isoYear = d.getFullYear();
   
   // Get first day of the ISO year (January 1st of that year)
@@ -101,7 +101,7 @@ function getWeeksSinceBirth(weekIndex, year, birthDate) {
   let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   let weeksSinceBirth = Math.floor(diffDays / 7);
   
-  // Ensure we don't return negative values for future weeks
+  // Prevent negative values for future weeks
   return Math.max(0, weeksSinceBirth);
 }
 
@@ -124,10 +124,10 @@ function getDateFromWeekIndex(weekIndex, year) {
   let daysToThursday = (4 - dayOfWeek + 7) % 7;
   firstThursday.setDate(jan1.getDate() + daysToThursday);
   
-  // If the first Thursday is in the previous calendar year,
-  // it means week 1 of this ISO year starts in December of previous year
-  // In this case, the first Thursday is correct, but we need to handle it properly
-  // The Monday of week 1 would be 3 days before this Thursday
+  /* If the first Thursday is in the previous calendar year,
+  it means week 1 of this ISO year starts in December of previous year
+  In this case, the first Thursday is correct, but we need to handle it properly
+   */
   
   // Calculate the date for the given week (weekIndex 0 = week 1)
   let weekDate = new Date(firstThursday);
@@ -205,7 +205,7 @@ function getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate) {
   let isoYear = isoWeekInfo.year;
   
   // Use the ISO year (which correctly handles year boundaries)
-  // This ensures that weeks spanning December-January are assigned to the correct year
+  // Weeks spanning December-January are assigned to the correct ISO year
   return {
     year: isoYear,
     weekIndex: weekIndex
@@ -223,4 +223,3 @@ function normalizeDateToStartOfDay(date) {
   normalized.setHours(0, 0, 0, 0);
   return normalized;
 }
-

@@ -1,3 +1,32 @@
+.memory-item {
+  background-color: #FFFFFF;
+  border: 1px solid #BFC0B1;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memory-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.memory-item-date {
+  color: #8B8B8B;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.memory-item-text {
+  color: #525349;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -13,7 +42,7 @@ canvas {
 #home-btn {
   position: fixed;
   top: 20px;
-  left: 20px; /* Positioned on the left side of the page */
+  left: 20px;
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -146,7 +175,7 @@ canvas {
     height: 40px;
     font-size: 20px;
     top: 10px;
-    left: 10px; /* Positioned on the left side of the page */
+    left: 10px;
   }
 
   #music-toggle-btn {
@@ -371,68 +400,6 @@ body:has(#entry-modal.show) canvas {
 
 #memories-list::-webkit-scrollbar-thumb:hover {
   background: #9FA0A1;
-}
-
-.memory-item {
-  background-color: #FFFFFF;
-  border: 1px solid #BFC0B1;
-  border-radius: 6px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.memory-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.memory-item-date {
-  color: #8B8B8B;
-  font-size: 12px;
-  font-style: italic;
-}
-
-.memory-item-text {
-  color: #525349;
-  font-size: 14px;
-  line-height: 1.4;
-  word-wrap: break-word;
-}
-
-.memory-item-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.memory-item button {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.memory-edit-btn {
-  background-color: #ff914d;
-  color: #FFFFFF;
-}
-
-.memory-edit-btn:hover {
-  background-color: #e67d3a;
-}
-
-.memory-delete-btn {
-  background-color: #D58B68;
-  color: #FFFFFF;
-}
-
-.memory-delete-btn:hover {
-  background-color: #C47A5B;
 }
 
 .empty-memories {
