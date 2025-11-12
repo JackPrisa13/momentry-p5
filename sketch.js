@@ -56,6 +56,21 @@ class App {
       targetYear: null,
       phase: 'none'     // 'none', 'fadeOut', 'fadeIn'
     };
+    
+    // Main page fade-in state (after iris wipe transition)
+    this.mainPageFadeIn = {
+      active: false,
+      alpha: 0,
+      duration: 500,    // 500ms fade-in duration
+      startTime: 0
+    };
+    
+    // Cached DOM elements (to avoid querying every frame)
+    this.cachedHomeBtn = null;
+    this.cachedModal = null;
+    this.cachedModalOpen = false;
+    this.lastModalCheck = 0;
+    this.MODAL_CHECK_INTERVAL = 100; // Check modal state every 100ms instead of every frame
   }
   
   /**
@@ -225,12 +240,15 @@ function setup() {
   }
   
   // --- Home Button Setup ---
-  let homeBtn = document.getElementById('home-btn');
-  if (homeBtn) {
-    homeBtn.addEventListener('click', function() {
+  app.cachedHomeBtn = document.getElementById('home-btn');
+  if (app.cachedHomeBtn) {
+    app.cachedHomeBtn.addEventListener('click', function() {
       returnToHome();
     });
   }
+  
+  // Cache modal element
+  app.cachedModal = document.getElementById('entry-modal');
   
   // --- Year Navigation Buttons Setup ---
   let yearPrevBtn = document.getElementById('year-prev-btn');
@@ -272,9 +290,20 @@ function draw() {
     background(app.backgroundColour);
     
     // Draw rain particles first (behind everything else)
-    for (let particle of app.rainParticles) {
-      particle.update();
-      particle.display();
+    // Apply fade-in alpha if active
+    if (app.mainPageFadeIn.active) {
+      push();
+      drawingContext.globalAlpha = app.mainPageFadeIn.alpha / 255;
+      for (let particle of app.rainParticles) {
+        particle.update();
+        particle.display();
+      }
+      pop();
+    } else {
+      for (let particle of app.rainParticles) {
+        particle.update();
+        particle.display();
+      }
     }
   }
   
@@ -297,6 +326,10 @@ function draw() {
         app.showStartingPage = false;
         app.weeks = [];
         initializeMainApp();
+        // Start fade-in animation
+        app.mainPageFadeIn.active = true;
+        app.mainPageFadeIn.alpha = 0;
+        app.mainPageFadeIn.startTime = millis();
       }
     }
     
@@ -305,9 +338,8 @@ function draw() {
       app.mouseTrail.display(app.showStartingPage);
     }
     // Hide home button and navigation buttons on starting page
-    let homeBtn = document.getElementById('home-btn');
-    if (homeBtn) {
-      homeBtn.style.display = 'none';
+    if (app.cachedHomeBtn) {
+      app.cachedHomeBtn.style.display = 'none';
     }
     // Navigation buttons hidden on starting page
     updateNavigationButtons();
@@ -315,16 +347,22 @@ function draw() {
   }
   
   // Show home button when not on starting page
-  let homeBtn = document.getElementById('home-btn');
-  if (homeBtn) {
-    homeBtn.style.display = 'flex';
+  if (app.cachedHomeBtn) {
+    app.cachedHomeBtn.style.display = 'flex';
   }
   
   // Update navigation buttons visibility
   updateNavigationButtons();
 
-  // Draw header with age info
-  drawHeader();
+  // Draw header with age info (apply fade-in alpha if active)
+  if (app.mainPageFadeIn.active) {
+    push();
+    drawingContext.globalAlpha = app.mainPageFadeIn.alpha / 255;
+    drawHeader();
+    pop();
+  } else {
+    drawHeader();
+  }
 
   // Check if modal is open
   let modalOpen = isModalOpen();
@@ -346,10 +384,21 @@ function draw() {
 
   // Update year transition if active
   updateYearTransition();
+  
+  // Update main page fade-in if active
+  updateMainPageFadeIn();
 
   // Draw all circles (pass today to avoid creating it 52 times)
+  // Apply fade-in alpha if active
+  let mainPageAlpha = app.mainPageFadeIn.active ? app.mainPageFadeIn.alpha : 255;
   for (let week of app.weeks) {
+    // Temporarily override circle's alpha for fade-in
+    let originalAlpha = week.alpha;
+    if (app.mainPageFadeIn.active) {
+      week.alpha = mainPageAlpha;
+    }
     week.display(app.currentWeekIndex, app.currentDisplayYear, app.birthDate, today);
+    week.alpha = originalAlpha; // Restore original alpha
   }
 
   // Draw mouse trail on top of everything
@@ -359,20 +408,39 @@ function draw() {
   
   // Update and display goal countdown (only when not on starting page)
   // Pass today to avoid creating it again
+  // Apply fade-in alpha if active
   if (!app.showStartingPage && app.goalCountdown && app.birthDate) {
     app.goalCountdown.update(app.birthDate, app.currentDisplayYear, app.currentWeekIndex, today);
-    app.goalCountdown.display();
+    if (app.mainPageFadeIn.active) {
+      push();
+      drawingContext.globalAlpha = app.mainPageFadeIn.alpha / 255;
+      app.goalCountdown.display();
+      pop();
+    } else {
+      app.goalCountdown.display();
+    }
   }
 }
 
 /**
  * isModalOpen()
- * Checks if the modal is currently open
+ * Checks if the modal is currently open (cached, only checks periodically)
  * @returns {boolean} - True if modal is open
  */
 function isModalOpen() {
-  let modal = document.getElementById('entry-modal');
-  return modal && modal.classList.contains('show');
+  // Only check modal state periodically to avoid DOM queries every frame
+  let now = millis();
+  if (now - app.lastModalCheck > app.MODAL_CHECK_INTERVAL) {
+    if (app.cachedModal) {
+      app.cachedModalOpen = app.cachedModal.classList.contains('show');
+    } else {
+      // Fallback if cached modal is null
+      app.cachedModal = document.getElementById('entry-modal');
+      app.cachedModalOpen = app.cachedModal && app.cachedModal.classList.contains('show');
+    }
+    app.lastModalCheck = now;
+  }
+  return app.cachedModalOpen;
 }
 
 /**
@@ -468,7 +536,6 @@ function mousePressed() {
     }
   }
 }
-
 
 /**
  * showWeekModal()
@@ -625,6 +692,10 @@ function returnToHome() {
   app.weeksLived = 0;
   app.showStartingPage = true;
   
+  // Reset fade-in state
+  app.mainPageFadeIn.active = false;
+  app.mainPageFadeIn.alpha = 255;
+  
   // Keep saved birth date to allow user to re-enter if desired
   // Reset starting page to show the intro sequence again
   app.startingPage = new StartingPage();
@@ -721,6 +792,27 @@ function updateYearTransition() {
       app.yearTransition.phase = 'none';
       app.yearTransition.targetYear = null;
     }
+  }
+}
+
+/**
+ * updateMainPageFadeIn()
+ * Updates the main page fade-in animation state (after iris wipe transition)
+ */
+function updateMainPageFadeIn() {
+  if (!app.mainPageFadeIn.active) return;
+  
+  const elapsed = millis() - app.mainPageFadeIn.startTime;
+  const { duration } = app.mainPageFadeIn;
+  
+  // Fade in: alpha goes from 0 to 255
+  const alpha = map(elapsed, 0, duration, 0, 255, true);
+  app.mainPageFadeIn.alpha = alpha;
+  
+  // Fade-in complete
+  if (elapsed >= duration) {
+    app.mainPageFadeIn.active = false;
+    app.mainPageFadeIn.alpha = 255;
   }
 }
 
