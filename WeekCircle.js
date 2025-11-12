@@ -29,6 +29,7 @@ class WeekCircle {
         this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
         this.breathSpeed = random(0.5, 0.9);
         this.breathPhase = random(TWO_PI);
+        this.alpha = 255; // Opacity for fade transitions (0-255)
         
         // --- Cached State (calculated once, not every frame) ---
         this.isBeforeBirth = false;
@@ -158,6 +159,11 @@ class WeekCircle {
       // First, update the size animation
         this.update();
         this.updateBreathing();
+        
+        // Apply alpha for fade transitions
+        push();
+        drawingContext.globalAlpha = this.alpha / 255;
+        
         strokeWeight(2);
         
         // Use cached hasData (calculated once in updateState, not every frame)
@@ -216,6 +222,8 @@ class WeekCircle {
         
         // Draw week number text
         this.drawWeekNumber(currentWeekIndex, drawY);
+        
+        pop();
     }
     
     /**

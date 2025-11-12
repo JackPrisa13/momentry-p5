@@ -43,6 +43,16 @@ class App {
     this.xSpacing = this.circleSize + 30;
     this.ySpacing = this.circleSize; // Use a tighter vertical spacing for the honeycomb look
     this.backgroundColour = "#F7F6E4";
+    
+    // Year transition state
+    this.yearTransition = {
+      active: false,
+      alpha: 0,
+      duration: 300, // milliseconds for each fade (out + in = 600ms total)
+      startTime: 0,
+      targetYear: null,
+      phase: 'none' // 'none', 'fadeOut', 'fadeIn'
+    };
   }
 }
 
@@ -281,17 +291,20 @@ function draw() {
   // Create today date once per frame (used by multiple components)
   let today = new Date();
 
-  // Only check hover states if modal is NOT open
-  if (!modalOpen) {
+  // Only check hover states if modal is NOT open and NOT transitioning
+  if (!modalOpen && !app.yearTransition.active) {
     for (let week of app.weeks) {
       week.checkHover();
     }
   } else {
-    // If modal is open, clear all hover states to prevent hover effects
+    // If modal is open or transitioning, clear all hover states
     for (let week of app.weeks) {
       week.isHovered = false;
     }
   }
+
+  // Update year transition if active
+  updateYearTransition();
 
   // Draw all circles (pass today to avoid creating it 52 times)
   for (let week of app.weeks) {
@@ -603,7 +616,7 @@ function refreshCircleData(year) {
 
 /**
  * navigateToYear()
- * Navigates to a different year and rebuilds the grid
+ * Navigates to a different year with a smooth fade transition
  * @param {number} year - The year to navigate to
  */
 function navigateToYear(year) {
@@ -618,6 +631,11 @@ function navigateToYear(year) {
     return;
   }
   
+  // Don't navigate if already transitioning or already on that year
+  if (app.yearTransition.active || year === app.currentDisplayYear) {
+    return;
+  }
+  
   // Hide modal if it's open
   let modal = document.getElementById('entry-modal');
   if (modal && modal.classList.contains('show')) {
@@ -628,12 +646,68 @@ function navigateToYear(year) {
   modalManager.selectedWeeksSinceBirth = null;
   modalManager.editingMemoryId = null;
   
-  // Clear existing weeks
-  app.weeks = [];
-  
-  // Rebuild for the new year
-  initializeMainApp(year);
+  // Start fade transition
+  app.yearTransition.active = true;
+  app.yearTransition.phase = 'fadeOut';
+  app.yearTransition.alpha = 0;
+  app.yearTransition.startTime = millis();
+  app.yearTransition.targetYear = year;
 }
+
+/**
+ * updateYearTransition()
+ * Updates the year transition animation state
+ */
+function updateYearTransition() {
+  if (!app.yearTransition.active) return;
+  
+  const elapsed = millis() - app.yearTransition.startTime;
+  const { duration, phase, targetYear } = app.yearTransition;
+  
+  if (phase === 'fadeOut') {
+    // Fade out: alpha goes from 255 to 0
+    const alpha = map(elapsed, 0, duration, 255, 0, true);
+    
+    // Apply alpha to all circles
+    for (let week of app.weeks) {
+      week.alpha = alpha;
+    }
+    
+    if (elapsed >= duration) {
+      // Fade out complete, switch year and start fade in
+      app.weeks = [];
+      initializeMainApp(targetYear);
+      
+      // Set new circles to fully transparent
+      for (let week of app.weeks) {
+        week.alpha = 0;
+      }
+      
+      app.yearTransition.phase = 'fadeIn';
+      app.yearTransition.startTime = millis();
+    }
+  } else if (phase === 'fadeIn') {
+    // Fade in: alpha goes from 0 to 255
+    const alpha = map(elapsed, 0, duration, 0, 255, true);
+    
+    // Apply alpha to all circles
+    for (let week of app.weeks) {
+      week.alpha = alpha;
+    }
+    
+    if (elapsed >= duration) {
+      // Transition complete - ensure all circles are fully opaque
+      for (let week of app.weeks) {
+        week.alpha = 255;
+      }
+      
+      app.yearTransition.active = false;
+      app.yearTransition.phase = 'none';
+      app.yearTransition.targetYear = null;
+    }
+  }
+}
+
 
 /**
  * updateNavigationButtons()
@@ -662,7 +736,7 @@ function updateNavigationButtons() {
     if (app.currentDisplayYear <= birthYear) {
       // Disable previous button - can't go before birth year
       prevBtn.disabled = true;
-    } else {
+      } else {
       // Enable previous button
       prevBtn.disabled = false;
     }
