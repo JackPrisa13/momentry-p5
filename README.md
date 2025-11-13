@@ -59,7 +59,7 @@ A2/
 │
 ├── assets/
 │   ├── images/
-│   │   └── momentry_icon.png    # Favicon
+│   │   └── momentry_icon.png
 │   └── audio/
 │       └── bg_music.mp3         # Background music
 │
