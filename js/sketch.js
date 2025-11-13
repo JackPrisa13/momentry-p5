@@ -137,7 +137,7 @@ let app = new App();
  */
 function preload() {
   // Load background music
-  app.bgMusic = loadSound('bg_music.mp3');
+  app.bgMusic = loadSound('assets/audio/bg_music.mp3');
 }
 
 /**

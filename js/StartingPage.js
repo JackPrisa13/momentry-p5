@@ -141,26 +141,116 @@ class StartingPage {
       let textWidthAfter = textWidth(textAfter);
       let totalWidth = textWidthBefore + textWidthWeeks + textWidthAfter;
       
-      // Calculate start position to center the entire text block
-      let startX = width / 2 - totalWidth / 2;
-      let yPos = height / 2;
+      // Check if wrapping is needed (with padding for margins)
+      let maxWidth = width - 40; // 20px padding on each side
+      let needsWrapping = totalWidth > maxWidth;
       
-      // Draw text parts in strict left-to-right order
-      let currentX = startX;
-      
-      // 1. Draw "You have about " first
-      fill(255, 255, 255, alpha);
-      text(textBefore, currentX, yPos);
-      currentX += textWidthBefore;
-      
-      // 2. Draw "4,000 weeks" with special color (apply alpha fade)
-      fill(244, 205, 127, alpha); // #f4cd7f with alpha
-      text(textWeeks, currentX, yPos);
-      currentX += textWidthWeeks;
-      
-      // 3. Draw ". Are you making them count?" last
-      fill(255, 255, 255, alpha);
-      text(textAfter, currentX, yPos);
+      if (needsWrapping) {
+        // Multi-line version with color preservation
+        // Split into words, keeping "4,000 weeks" as a single unit
+        let words = [];
+        let fullText = textBefore + textWeeks + textAfter;
+        
+        // Split by spaces, but we need to identify where "4,000 weeks" is
+        let beforeWords = textBefore.trim().split(' '); // ["You", "have", "about"]
+        let afterWords = textAfter.trim().split(' '); // [".", "Are", "you", "making", "them", "count?"]
+        
+        // Build word array with color info
+        for (let word of beforeWords) {
+          words.push({ text: word, color: 'white' });
+        }
+        words.push({ text: textWeeks, color: 'gold' }); // Keep as single unit
+        for (let word of afterWords) {
+          words.push({ text: word, color: 'white' });
+        }
+        
+        // Build lines that fit within maxWidth
+        let lines = [];
+        let currentLine = [];
+        let currentLineWidth = 0;
+        let spaceWidth = textWidth(' ');
+        
+        for (let i = 0; i < words.length; i++) {
+          let word = words[i];
+          let wordWidth = textWidth(word.text);
+          let wouldBeWidth = currentLineWidth + (currentLine.length > 0 ? spaceWidth : 0) + wordWidth;
+          
+          if (wouldBeWidth > maxWidth && currentLine.length > 0) {
+            // Current line is full, start new line
+            lines.push(currentLine);
+            currentLine = [word];
+            currentLineWidth = wordWidth;
+          } else {
+            // Add word to current line
+            currentLine.push(word);
+            currentLineWidth = wouldBeWidth;
+          }
+        }
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+        }
+        
+        // Draw lines with proper colors
+        let lineHeight = fontSize * 1.4;
+        let totalHeight = (lines.length - 1) * lineHeight;
+        let startY = height / 2 - totalHeight / 2;
+        
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+          let line = lines[lineIndex];
+          let lineY = startY + lineIndex * lineHeight;
+          
+          // Calculate line width to center it
+          let lineWidth = 0;
+          for (let i = 0; i < line.length; i++) {
+            lineWidth += textWidth(line[i].text);
+            if (i < line.length - 1) {
+              lineWidth += spaceWidth;
+            }
+          }
+          let lineStartX = width / 2 - lineWidth / 2;
+          let currentX = lineStartX;
+          
+          // Draw each word with its color
+          for (let i = 0; i < line.length; i++) {
+            let word = line[i];
+            if (i > 0) {
+              currentX += spaceWidth;
+            }
+            
+            // Set color based on word type
+            if (word.color === 'gold') {
+              fill(244, 205, 127, alpha); // #f4cd7f with alpha
+            } else {
+              fill(255, 255, 255, alpha);
+            }
+            
+            text(word.text, currentX, lineY);
+            currentX += textWidth(word.text);
+          }
+        }
+      } else {
+        // Single-line version (original code)
+        // Calculate start position to center the entire text block
+        let startX = width / 2 - totalWidth / 2;
+        let yPos = height / 2;
+        
+        // Draw text parts in strict left-to-right order
+        let currentX = startX;
+        
+        // 1. Draw "You have about " first
+        fill(255, 255, 255, alpha);
+        text(textBefore, currentX, yPos);
+        currentX += textWidthBefore;
+        
+        // 2. Draw "4,000 weeks" with special color (apply alpha fade)
+        fill(244, 205, 127, alpha); // #f4cd7f with alpha
+        text(textWeeks, currentX, yPos);
+        currentX += textWidthWeeks;
+        
+        // 3. Draw ". Are you making them count?" last
+        fill(255, 255, 255, alpha);
+        text(textAfter, currentX, yPos);
+      }
     } else {
       // Regular question display
       textAlign(CENTER, CENTER);
