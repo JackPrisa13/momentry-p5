@@ -176,47 +176,106 @@ class WeekCircle {
 
         // Rule 1: Set fill colour based on data and time
         // If week is before birth, grey it out regardless of data
+        let baseFillColor;
         if (this.isBeforeBirth) {
             // Grey out weeks before birth - use a muted grey color (fully opaque)
-            fill(color(180, 180, 180, 255)); // Light grey, fully opaque
+            baseFillColor = color(180, 180, 180, 255); // Light grey, fully opaque
         } else if (hasData) {
             if (this.isPast) {
                 // Data in the past = Memory
-                fill(this.filledColourMemory);
+                baseFillColor = color(this.filledColourMemory);
             } else if (isCurrent) {
                 // Data in current week = Memory (same as past)
-                fill(this.filledColourMemory);
+                baseFillColor = color(this.filledColourMemory);
             } else {
                 // Data in the future = Goal
-                fill(this.filledColourGoal);
+                baseFillColor = color(this.filledColourGoal);
             }
         } else {
             // No data - different colors for past, current, and future
             if (this.isPast) {
                 // Empty past weeks = lighter color with soft transparency to indicate missing memory
-                fill(color(this.emptyColourPast + "99"));
+                baseFillColor = color(this.emptyColourPast + "99");
             } else {
                 // Empty future weeks = original empty color with transparency
-                fill(color(this.emptyColour + "66")); // Hex '66' ~ 40% alpha
+                baseFillColor = color(this.emptyColour + "66"); // Hex '66' ~ 40% alpha
             }
         }
         
+        // Adjust color on hover (only for interactive weeks)
+        if (this.isHovered && !this.isBeforeBirth) {
+            let r = red(baseFillColor);
+            let g = green(baseFillColor);
+            let b = blue(baseFillColor);
+            let a = alpha(baseFillColor);
+            
+            // Different hover effects based on circle type
+            if (hasData && !this.isPast && !isCurrent) {
+                // Goals (golden circles) - darken and increase saturation
+                // First darken slightly
+                r = max(0, r - r * 0.05);
+                g = max(0, g - g * 0.05);
+                b = max(0, b - b * 0.05);
+                // Then increase saturation by boosting the dominant color (golden = more red/green)
+                let avg = (r + g + b) / 3;
+                r = min(255, r + (r - avg) * 0.4);
+                g = min(255, g + (g - avg) * 0.4);
+                b = max(0, b - (avg - b) * 0.2); // Reduce blue to make it more golden
+            } else if (hasData && (this.isPast || isCurrent)) {
+                // Filled memories - darken more (40%)
+                r = max(0, r - r * 0.4);
+                g = max(0, g - g * 0.4);
+                b = max(0, b - b * 0.4);
+            } else if (!hasData && this.isPast) {
+                // Empty past circles - darken more (30%)
+                r = max(0, r - r * 0.3);
+                g = max(0, g - g * 0.3);
+                b = max(0, b - b * 0.3);
+            } else {
+                // Empty future circles - darken less (20%)
+                r = max(0, r - r * 0.2);
+                g = max(0, g - g * 0.2);
+                b = max(0, b - b * 0.15); // Just to make color more distinct from base color
+            }
+            baseFillColor = color(r, g, b, a);
+        }
+        
+        fill(baseFillColor);
+        
         // Rule 2: Highlight the current week (but not if before birth)
+        let borderColor;
         if (isCurrent && !this.isBeforeBirth) {
-            stroke(this.currentWeekColour);
+            borderColor = color(this.currentWeekColour);
             strokeWeight(6);
         } else {
             // Grey out border for weeks before birth
             if (this.isBeforeBirth) {
-                stroke(color(150, 150, 150, 255)); // Muted grey border, fully opaque
+                borderColor = color(150, 150, 150, 255); // Muted grey border, fully opaque
             } else {
-                stroke(this.borderColour);
+                borderColor = color(this.borderColour);
             }
             strokeWeight(2);
         }
+        
+        // Darken the border color on hover
+        if (this.isHovered && !this.isBeforeBirth && !isCurrent) {
+            let r = red(borderColor);
+            let g = green(borderColor);
+            let b = blue(borderColor);
+            let a = alpha(borderColor);
+            // Darken by 20% towards black
+            r = max(0, r - r * 0.2);
+            g = max(0, g - g * 0.2);
+            b = max(0, b - b * 0.2);
+            borderColor = color(r, g, b, a);
+        }
+        
+        stroke(borderColor);
     
-        // Draw the circle
+        // Calculate visual position (including breathing offset)
         const drawY = this.y + this.visualOffsetY;
+        
+        // Draw the circle
         circle(this.x, drawY, this.currentSize);
         
         // Draw week number text

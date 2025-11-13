@@ -179,17 +179,32 @@ class GoalCountdown {
       // Draw card background
       push();
       noStroke();
+      // Base fill color
+      let baseFillColor = color(245, 244, 227, 200); // Semi-transparent beige
+      
+      // Darken the fill color on hover (less darkening for cards)
       if (isHovered) {
-        fill(245, 244, 227, 240); // Slightly darker on hover
-      } else {
-        fill(245, 244, 227, 200); // Semi-transparent beige
+        let r = red(baseFillColor);
+        let g = green(baseFillColor);
+        let b = blue(baseFillColor);
+        let a = alpha(baseFillColor);
+        // Darken by 10% towards black (less than circles)
+        r = max(0, r - r * 0.1);
+        g = max(0, g - g * 0.1);
+        b = max(0, b - b * 0.08);
+        baseFillColor = color(r, g, b, a);
       }
+      
+      fill(baseFillColor);
       rect(bounds.x, bounds.y, bounds.width, bounds.height, 8); // Rounded corners
       pop();
       
       // Draw card border
       push();
-      stroke(isHovered ? "#ff914d" : "#BFC0B1");
+      // Use orange border on hover (matching current week indicator), otherwise use base color
+      let borderColor = isHovered ? color("#ff914d") : color("#BFC0B1");
+      
+      stroke(borderColor);
       strokeWeight(isHovered ? 2 : 1);
       noFill();
       rect(bounds.x, bounds.y, bounds.width, bounds.height, 8);

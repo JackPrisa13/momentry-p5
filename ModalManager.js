@@ -137,6 +137,20 @@ class ModalManager {
       }.bind(this));
     }
 
+    // Delete memory button
+    let deleteBtn = document.getElementById('memory-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function() {
+        if (this.editingMemoryId !== null && this.selectedWeeksSinceBirth !== null) {
+          deleteMemory(this.selectedWeeksSinceBirth, this.editingMemoryId);
+          // Clear editing state
+          this.editingMemoryId = null;
+          // Return to list view after deletion
+          showMemoryInputSection(false);
+        }
+      }.bind(this));
+    }
+
     // Save button
     let saveBtn = document.getElementById('modal-save-btn');
     saveBtn.addEventListener('click', function() {

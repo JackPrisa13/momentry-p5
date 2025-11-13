@@ -353,6 +353,26 @@ body:has(#entry-modal.show) canvas {
   background-color: #A8A99A;
 }
 
+.delete-btn {
+  background-color: #dc3545;
+  color: #FFFFFF;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+#memory-edit-content-btn,
+#memory-close-view-btn {
+  background-color: #BFC0B1;
+  color: #525349;
+}
+
+#memory-edit-content-btn:hover,
+#memory-close-view-btn:hover {
+  background-color: #A8A99A;
+}
+
 /* Memories List Styles */
 #memories-list-container {
   display: flex;
