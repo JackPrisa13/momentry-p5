@@ -370,10 +370,21 @@ function draw() {
   // Create today date once per frame (used by multiple components)
   let today = new Date();
 
+  // Cache interaction coordinates once per frame (avoid checking touches.length 52 times)
+  // This is a performance optimization for mobile browsers
+  let interactionX, interactionY;
+  if (typeof touches !== 'undefined' && touches.length > 0) {
+    interactionX = touchX;
+    interactionY = touchY;
+  } else {
+    interactionX = mouseX;
+    interactionY = mouseY;
+  }
+
   // Only check hover states if modal is NOT open and NOT transitioning
   if (!modalOpen && !app.yearTransition.active) {
     for (let week of app.weeks) {
-      week.checkHover();
+      week.checkHover(interactionX, interactionY);
     }
   } else {
     // If modal is open or transitioning, clear all hover states
@@ -449,7 +460,7 @@ function isModalOpen() {
  * @returns {number} - X coordinate
  */
 function getInteractionX() {
-  if (touches.length > 0) {
+  if (typeof touches !== 'undefined' && touches.length > 0) {
     return touchX;
   }
   return mouseX;
@@ -461,7 +472,7 @@ function getInteractionX() {
  * @returns {number} - Y coordinate
  */
 function getInteractionY() {
-  if (touches.length > 0) {
+  if (typeof touches !== 'undefined' && touches.length > 0) {
     return touchY;
   }
   return mouseY;
@@ -584,9 +595,10 @@ function mousePressed() {
 
 function touchStarted() {
   // Use the first touch point
-  if (touches.length > 0) {
+  // Add safety check for touch coordinates
+  if (typeof touches !== 'undefined' && touches.length > 0 && typeof touchX !== 'undefined' && typeof touchY !== 'undefined') {
     handleInteraction(touchX, touchY);
-    return false; // Prevent default touch behavior
+    return false; // Prevent default touch behavior (scrolling, zooming)
   }
   return false;
 }

@@ -87,26 +87,22 @@ class WeekCircle {
      * checkHover()
      * Detects if the mouse or touch is over this circle.
      * This should be called from sketch.js's main draw() loop *before* display().
+     * @param {number} [x] - X coordinate (optional, uses mouseX/touchX if not provided)
+     * @param {number} [y] - Y coordinate (optional, uses mouseY/touchY if not provided)
      * @returns {boolean} - True if the mouse/touch is over, false otherwise.
      */
-    checkHover() {
+    checkHover(x, y) {
         // Weeks before birth are not interactive
         if (this.isBeforeBirth) {
             this.isHovered = false;
             return false;
         }
         
-        // Check mouse or touch position
-        let x, y;
-        if (touches.length > 0) {
-            x = touchX;
-            y = touchY;
-        } else {
-            x = mouseX;
-            y = mouseY;
-        }
+        // Use provided coordinates or fall back to mouse/touch (for backward compatibility)
+        let coordX = x !== undefined ? x : (typeof touches !== 'undefined' && touches.length > 0 ? touchX : mouseX);
+        let coordY = y !== undefined ? y : (typeof touches !== 'undefined' && touches.length > 0 ? touchY : mouseY);
         
-        let d = dist(x, y, this.x, this.y);
+        let d = dist(coordX, coordY, this.x, this.y);
         let wasHovered = this.isHovered;
         
         // Check if distance is less than *half* the size (the radius)
