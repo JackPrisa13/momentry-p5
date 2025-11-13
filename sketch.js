@@ -444,17 +444,46 @@ function isModalOpen() {
 }
 
 /**
+ * getInteractionX()
+ * Gets the current X coordinate from mouse or touch
+ * @returns {number} - X coordinate
+ */
+function getInteractionX() {
+  if (touches.length > 0) {
+    return touchX;
+  }
+  return mouseX;
+}
+
+/**
+ * getInteractionY()
+ * Gets the current Y coordinate from mouse or touch
+ * @returns {number} - Y coordinate
+ */
+function getInteractionY() {
+  if (touches.length > 0) {
+    return touchY;
+  }
+  return mouseY;
+}
+
+/**
  * isButtonClick()
  * Checks if the click is on a button element
+ * @param {number} x - X coordinate (optional, uses current interaction point if not provided)
+ * @param {number} y - Y coordinate (optional, uses current interaction point if not provided)
  * @returns {boolean} - True if click is on a button
  */
-function isButtonClick() {
+function isButtonClick(x, y) {
   let canvas = document.querySelector('canvas');
   if (!canvas) return false;
   
+  let coordX = x !== undefined ? x : getInteractionX();
+  let coordY = y !== undefined ? y : getInteractionY();
+  
   let rect = canvas.getBoundingClientRect();
-  let screenX = rect.left + mouseX;
-  let screenY = rect.top + mouseY;
+  let screenX = rect.left + coordX;
+  let screenY = rect.top + coordY;
   let elementAtPoint = document.elementFromPoint(screenX, screenY);
   
   return elementAtPoint && (elementAtPoint.tagName === 'BUTTON' || elementAtPoint.closest('button'));
@@ -463,36 +492,48 @@ function isButtonClick() {
 /**
  * handleStartingPageClick()
  * Handles clicks on the starting page
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
  */
-function handleStartingPageClick() {
-  // Pass mouse coordinates to handleClick
+function handleStartingPageClick(x, y) {
+  // Pass coordinates to handleClick
   if (app.startingPage) {
-    app.startingPage.handleClick(mouseX, mouseY);
+    app.startingPage.handleClick(x, y);
   }
   // Main app initialization happens when isComplete() returns true
 }
 
 /**
  * isClickOnCircle()
- * Checks if the mouse click is on a specific circle
+ * Checks if the click is on a specific circle
  * @param {WeekCircle} week - The week circle to check
+ * @param {number} x - X coordinate (optional, uses current interaction point if not provided)
+ * @param {number} y - Y coordinate (optional, uses current interaction point if not provided)
  * @returns {boolean} - True if click is on the circle
  */
-function isClickOnCircle(week) {
-  let d = dist(mouseX, mouseY, week.x, week.y);
+function isClickOnCircle(week, x, y) {
+  let coordX = x !== undefined ? x : getInteractionX();
+  let coordY = y !== undefined ? y : getInteractionY();
+  let d = dist(coordX, coordY, week.x, week.y);
   return d < week.baseSize / 2;
 }
 
-function mousePressed() {
+/**
+ * handleInteraction()
+ * Shared handler for both mouse and touch interactions
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ */
+function handleInteraction(x, y) {
   // Skip click processing if modal is open
   if (isModalOpen()) return;
   
   // Skip click processing if clicking on a button
-  if (isButtonClick()) return;
+  if (isButtonClick(x, y)) return;
 
   // Handle starting page clicks
   if (app.showStartingPage) {
-    handleStartingPageClick();
+    handleStartingPageClick(x, y);
     return;
   }
 
@@ -502,7 +543,7 @@ function mousePressed() {
   
   // Check if a goal countdown card was clicked
   if (app.goalCountdown) {
-    let clickedGoal = app.goalCountdown.checkClick(mouseX, mouseY);
+    let clickedGoal = app.goalCountdown.checkClick(x, y);
     if (clickedGoal) {
       // Open the memory in view mode
       if (typeof viewMemory === 'function' && clickedGoal.weeksSinceBirth !== undefined && clickedGoal.memoryId) {
@@ -530,11 +571,24 @@ function mousePressed() {
   for (let week of app.weeks) {
     if (week.isBeforeBirth) continue;
     
-    if (isClickOnCircle(week)) {
+    if (isClickOnCircle(week, x, y)) {
       showWeekModal(week);
       break;
     }
   }
+}
+
+function mousePressed() {
+  handleInteraction(mouseX, mouseY);
+}
+
+function touchStarted() {
+  // Use the first touch point
+  if (touches.length > 0) {
+    handleInteraction(touchX, touchY);
+    return false; // Prevent default touch behavior
+  }
+  return false;
 }
 
 /**
