@@ -26,7 +26,7 @@ class WeekCircle {
         this.currentSize = this.baseSize;
         this.lerpSpeed = 0.1;                                       // Animation speed (0.1 is smooth)
         this.visualOffsetY = 0;
-        this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
+        this.breathAmplitude = Math.min(10, this.baseSize * 0.08);
         this.breathSpeed = random(0.5, 0.9);
         this.breathPhase = random(TWO_PI);
         this.alpha = 255;                                           // Opacity for fade transitions (0-255)
@@ -299,7 +299,7 @@ class WeekCircle {
         // Reset current size to match new base size
         this.currentSize = newSize;
         this.targetSize = newSize;
-        this.breathAmplitude = Math.min(6, this.baseSize * 0.08);
+        this.breathAmplitude = Math.min(10, this.baseSize * 0.08);
     }
     
     /**
