@@ -192,7 +192,8 @@ This project is created for educational purposes as part of a university assignm
 
 - Built with [p5.js](https://p5js.org/)
 - Uses [Inter font](https://fonts.google.com/specimen/Inter) from Google Fonts
-- Inspired by the concept of "4,000 weeks" from Oliver Burkeman's book
+- Background music: "Hinoki Wood" (original by [Gia Margaret](https://giamargaret.bandcamp.com/)), version by [Paul Drew Music](https://www.youtube.com/watch?v=vnnuLgNXms4)
+- Inspired by the concept of "4,000 weeks" from [Oliver Burkeman's book](https://www.oliverburkeman.com/fourthousandweeks)
 
 ---
 
