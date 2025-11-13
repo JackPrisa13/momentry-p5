@@ -98,8 +98,8 @@ class WeekCircle {
             return false;
         }
         
-        // Use provided coordinates or fall back to mouse/touch (for backward compatibility)
-        // Validate touch coordinates are valid numbers (fixes GitHub Pages freeze)
+        // Use provided coordinates or fall back to mouse/touch
+        // Validate touch coordinates are valid numbers
         let coordX, coordY;
         if (x !== undefined && y !== undefined) {
             coordX = x;

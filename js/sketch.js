@@ -362,7 +362,7 @@ function draw() {
       }
     }
     
-    // Draw mouse trail on top (even on starting page, but it will be cleared by update)
+    // Draw mouse trail on top
     if (app.mouseTrail) {
       app.mouseTrail.display(app.showStartingPage);
     }

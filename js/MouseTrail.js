@@ -34,8 +34,8 @@ class MouseTrail {
         }
         let isModalOpen = this._cachedModal && this._cachedModal.classList.contains('show');
         
-        if (isModalOpen || showStartingPage) {
-        // Clear trail when modal opens or on starting page
+        if (isModalOpen) {
+        // Clear trail when modal opens
         this.trail = [];
         return;
         }
@@ -78,14 +78,14 @@ class MouseTrail {
      * @param {boolean} showStartingPage - Whether the starting page is showing
      */
     display(showStartingPage) {
-        // Check if modal is open or on starting page - don't draw trail
+        // Check if modal is open - don't draw trail
         // Use cached modal element from update() to avoid repeated DOM queries
         if (!this._cachedModal) {
         this._cachedModal = document.getElementById('entry-modal');
         }
         let isModalOpen = this._cachedModal && this._cachedModal.classList.contains('show');
         
-        if (isModalOpen || showStartingPage || this.trail.length < 2) {
+        if (isModalOpen || this.trail.length < 2) {
         return;
         }
         
@@ -103,8 +103,13 @@ class MouseTrail {
         let avgSize = (point1.size + point2.size) / 2;
         
         // Set stroke color with alpha that fades from start to end
-        // Reduced opacity multiplier (100 instead of 255) for more transparency
-        stroke(82, 83, 73, avgAlpha * 100); // #525349 with alpha
+        // Use a lighter grey on the dark starting page background
+        if (showStartingPage) {
+            stroke(220, 220, 220, avgAlpha * 140);
+        } else {
+            // Reduced opacity multiplier (100 instead of 255) for more transparency
+            stroke(82, 83, 73, avgAlpha * 100); // #525349 with alpha
+        }
         
         // Vary stroke weight - thicker at the start, thinner at the end
         strokeWeight(avgSize / 2);
