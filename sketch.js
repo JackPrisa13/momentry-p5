@@ -39,6 +39,7 @@ class App {
     
     // Rain particles for soulful background effect
     this.rainParticles = [];
+    this.currentParticleCount = null; // Track current particle count to detect threshold crossings
     
     // Grid Layout Parameters
     this.numRows = 7;
@@ -68,6 +69,7 @@ class App {
     // Cached DOM elements (to avoid querying every frame)
     this.cachedHomeBtn = null;
     this.cachedModal = null;
+    this.cachedCanvas = null;
     this.cachedModalOpen = false;
     this.lastModalCheck = 0;
     this.MODAL_CHECK_INTERVAL = 100; // Check modal state every 100ms instead of every frame
@@ -153,6 +155,28 @@ function calculateAgeAndWeeks() {
 }
 
 /**
+ * getParticleCountForWidth()
+ * Returns the appropriate particle count based on window width using discrete thresholds
+ * @param {number} width - Current window width
+ * @returns {number} - Particle count for this width
+ */
+function getParticleCountForWidth(width) {
+  // Discrete thresholds for particle scaling
+  // Only recreates when crossing these breakpoints
+  if (width < 600) {
+    return 500;   // Mobile
+  } else if (width < 800) {
+    return 1000;  // Small tablet
+  } else if (width < 1000) {
+    return 1500;  // Large tablet
+  } else if (width < 1200) {
+    return 2000;  // Small desktop
+  } else {
+    return 2500;  // Large desktop
+  }
+}
+
+/**
  * calculateResponsiveSizes()
  * Calculates responsive circle size and spacing based on window dimensions
  */
@@ -183,6 +207,9 @@ function calculateResponsiveSizes() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  
+  // Cache canvas element for performance
+  app.cachedCanvas = document.querySelector('canvas');
 
   // Set font for all p5.js text (Inter - open sauce font)
   textFont('Inter');
@@ -273,8 +300,10 @@ function setup() {
   app.goalCountdown = new GoalCountdown();
   
   // Initialize rain particles - create a few hundred for subtle background effect
+  // Use fewer particles on mobile for better performance, scaling up with screen size
   app.rainParticles = [];
-  let numParticles = 2_500; // Adjust for desired density
+  let numParticles = getParticleCountForWidth(windowWidth);
+  app.currentParticleCount = numParticles; // Track initial count
   for (let i = 0; i < numParticles; i++) {
     app.rainParticles.push(new RainParticle());
   }
@@ -372,8 +401,12 @@ function draw() {
 
   // Cache interaction coordinates once per frame (avoid checking touches.length 52 times)
   // This is a performance optimization for mobile browsers
+  // Validate touch coordinates are valid numbers before using them (fixes GitHub Pages freeze)
   let interactionX, interactionY;
-  if (typeof touches !== 'undefined' && touches.length > 0) {
+  if (typeof touches !== 'undefined' && touches.length > 0 && 
+      typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
+      !isNaN(touchX) && !isNaN(touchY) &&
+      isFinite(touchX) && isFinite(touchY)) {
     interactionX = touchX;
     interactionY = touchY;
   } else {
@@ -460,7 +493,8 @@ function isModalOpen() {
  * @returns {number} - X coordinate
  */
 function getInteractionX() {
-  if (typeof touches !== 'undefined' && touches.length > 0) {
+  if (typeof touches !== 'undefined' && touches.length > 0 && 
+      typeof touchX !== 'undefined' && !isNaN(touchX) && isFinite(touchX)) {
     return touchX;
   }
   return mouseX;
@@ -472,7 +506,8 @@ function getInteractionX() {
  * @returns {number} - Y coordinate
  */
 function getInteractionY() {
-  if (typeof touches !== 'undefined' && touches.length > 0) {
+  if (typeof touches !== 'undefined' && touches.length > 0 && 
+      typeof touchY !== 'undefined' && !isNaN(touchY) && isFinite(touchY)) {
     return touchY;
   }
   return mouseY;
@@ -486,7 +521,7 @@ function getInteractionY() {
  * @returns {boolean} - True if click is on a button
  */
 function isButtonClick(x, y) {
-  let canvas = document.querySelector('canvas');
+  let canvas = app.cachedCanvas;
   if (!canvas) return false;
   
   let coordX = x !== undefined ? x : getInteractionX();
@@ -525,6 +560,16 @@ function handleStartingPageClick(x, y) {
 function isClickOnCircle(week, x, y) {
   let coordX = x !== undefined ? x : getInteractionX();
   let coordY = y !== undefined ? y : getInteractionY();
+  
+  // Only validate if coordinates came from fallback (touch coordinates might be invalid)
+  // If x/y were passed directly (from mousePressed/touchStarted), they're already validated
+  if (x === undefined || y === undefined) {
+    // Coordinates came from fallback - validate they're valid numbers
+    if (isNaN(coordX) || isNaN(coordY) || !isFinite(coordX) || !isFinite(coordY)) {
+      return false;
+    }
+  }
+  
   let d = dist(coordX, coordY, week.x, week.y);
   return d < week.baseSize / 2;
 }
@@ -566,9 +611,8 @@ function handleInteraction(x, y) {
           modal.style.display = 'flex';
           modal.classList.add('show');
           // Disable canvas interaction
-          let canvas = document.querySelector('canvas');
-          if (canvas) {
-            canvas.style.pointerEvents = 'none';
+          if (app.cachedCanvas) {
+            app.cachedCanvas.style.pointerEvents = 'none';
           }
         }
         // View the specific memory
@@ -595,12 +639,45 @@ function mousePressed() {
 
 function touchStarted() {
   // Use the first touch point
-  // Add safety check for touch coordinates
-  if (typeof touches !== 'undefined' && touches.length > 0 && typeof touchX !== 'undefined' && typeof touchY !== 'undefined') {
-    handleInteraction(touchX, touchY);
-    return false; // Prevent default touch behavior (scrolling, zooming)
+  // In p5.js, touchX/touchY should be available, but use touches array as fallback
+  let x, y;
+  if (typeof touches !== 'undefined' && touches.length > 0) {
+    // Use touchX/touchY if valid, otherwise use touches[0]
+    if (typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
+        !isNaN(touchX) && !isNaN(touchY) && 
+        isFinite(touchX) && isFinite(touchY)) {
+      x = touchX;
+      y = touchY;
+    } else if (touches[0]) {
+      x = touches[0].x;
+      y = touches[0].y;
+    } else {
+      return true; // No valid touch coordinates, allow event to propagate to HTML elements
+    }
+    
+    // Check if touch is on a button or HTML element first
+    if (app.cachedCanvas) {
+      let rect = app.cachedCanvas.getBoundingClientRect();
+      let screenX = rect.left + x;
+      let screenY = rect.top + y;
+      let elementAtPoint = document.elementFromPoint(screenX, screenY);
+      
+      // If touch is on an HTML element (button, input, etc.), allow it to work normally
+      if (elementAtPoint && (elementAtPoint.tagName === 'BUTTON' || 
+          elementAtPoint.tagName === 'INPUT' || 
+          elementAtPoint.tagName === 'TEXTAREA' ||
+          elementAtPoint.closest('button') ||
+          elementAtPoint.closest('input') ||
+          elementAtPoint.closest('textarea'))) {
+        return true; // Allow default behavior for HTML elements
+      }
+    }
+    
+    // Touch is on canvas, handle it and prevent default scrolling/zooming
+    handleInteraction(x, y);
+    return false; // Prevent default touch behavior (scrolling, zooming) only for canvas touches
   }
-  return false;
+  return true; // Allow event to propagate if no touches detected
 }
 
 /**
@@ -723,9 +800,8 @@ function showModal(modal, textInput) {
   modal.classList.add('show');
   
   // Disable canvas interaction
-  let canvas = document.querySelector('canvas');
-  if (canvas) {
-    canvas.style.pointerEvents = 'none';
+  if (app.cachedCanvas) {
+    app.cachedCanvas.style.pointerEvents = 'none';
   }
   
   // Focus on title input if available, otherwise textarea
@@ -998,8 +1074,19 @@ function windowResized() {
   // Recalculate responsive sizes
   calculateResponsiveSizes();
   
-  // Reset rain particles for new canvas size (optional - particles will naturally wrap)
-  // We could recreate them, but letting them wrap naturally is fine
+  // Dynamically adjust rain particles if crossing any threshold
+  // Only adjust if app is initialized (not on starting page)
+  if (!app.showStartingPage && app.rainParticles.length > 0) {
+    let targetParticles = getParticleCountForWidth(windowWidth);
+    // Only recreate particles if we've crossed a threshold
+    if (app.currentParticleCount !== targetParticles) {
+      app.rainParticles = [];
+      for (let i = 0; i < targetParticles; i++) {
+        app.rainParticles.push(new RainParticle());
+      }
+      app.currentParticleCount = targetParticles; // Update tracked count
+    }
+  }
   
   // Update existing circles if the app is initialized
   if (!app.showStartingPage && app.weeks.length > 0) {

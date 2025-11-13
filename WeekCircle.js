@@ -99,8 +99,20 @@ class WeekCircle {
         }
         
         // Use provided coordinates or fall back to mouse/touch (for backward compatibility)
-        let coordX = x !== undefined ? x : (typeof touches !== 'undefined' && touches.length > 0 ? touchX : mouseX);
-        let coordY = y !== undefined ? y : (typeof touches !== 'undefined' && touches.length > 0 ? touchY : mouseY);
+        // Validate touch coordinates are valid numbers (fixes GitHub Pages freeze)
+        let coordX, coordY;
+        if (x !== undefined && y !== undefined) {
+            coordX = x;
+            coordY = y;
+        } else if (typeof touches !== 'undefined' && touches.length > 0 && 
+                   typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
+                   !isNaN(touchX) && !isNaN(touchY) && isFinite(touchX) && isFinite(touchY)) {
+            coordX = touchX;
+            coordY = touchY;
+        } else {
+            coordX = mouseX;
+            coordY = mouseY;
+        }
         
         let d = dist(coordX, coordY, this.x, this.y);
         let wasHovered = this.isHovered;
