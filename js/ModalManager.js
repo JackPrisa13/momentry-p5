@@ -716,7 +716,7 @@ function displayMemoriesList(weeksSinceBirth) {
     
     // Entire item is clickable to view memory
     // Handle both click and touch events for better mobile support
-    // Use touchstart instead of touchend for more reliable touch handling
+    // Use touchend with movement detection to allow scrolling without accidental taps
     let viewMemoryHandler = function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -724,11 +724,43 @@ function displayMemoriesList(weeksSinceBirth) {
     };
     
     memoryItem.addEventListener('click', viewMemoryHandler);
+    
+    // Track touch start position to detect scrolling vs tapping
+    let touchStartX = null;
+    let touchStartY = null;
+    const MOVEMENT_THRESHOLD = 10; // pixels - if moved more than this, treat as scroll
+    
     memoryItem.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      viewMemory(weeksSinceBirth, memory.id);
-    }, { passive: false }); // passive: false allows preventDefault
+      // Store touch start position
+      if (e.touches && e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true }); // passive: true allows smooth scrolling
+    
+    memoryItem.addEventListener('touchend', function(e) {
+      // Only trigger if touch didn't move much (tap, not scroll)
+      if (touchStartX !== null && touchStartY !== null && e.changedTouches && e.changedTouches.length > 0) {
+        let touchEndX = e.changedTouches[0].clientX;
+        let touchEndY = e.changedTouches[0].clientY;
+        
+        // Calculate distance moved
+        let deltaX = Math.abs(touchEndX - touchStartX);
+        let deltaY = Math.abs(touchEndY - touchStartY);
+        let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // If moved less than threshold, treat as tap
+        if (distance < MOVEMENT_THRESHOLD) {
+          e.preventDefault();
+          e.stopPropagation();
+          viewMemory(weeksSinceBirth, memory.id);
+        }
+      }
+      
+      // Reset touch start position
+      touchStartX = null;
+      touchStartY = null;
+    }, { passive: false }); // passive: false allows preventDefault for taps
     
     memoriesList.appendChild(memoryItem);
   });

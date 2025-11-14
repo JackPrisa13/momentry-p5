@@ -73,6 +73,18 @@ class App {
     this.cachedModalOpen = false;
     this.lastModalCheck = 0;
     this.MODAL_CHECK_INTERVAL = 100; // Check modal state every 100ms instead of every frame
+    
+    // Touch tracking for movement detection (to distinguish taps from scrolls/panning)
+    this.touchStartX = null;
+    this.touchStartY = null;
+    this.touchStartTime = null;
+    this.touchStartCanvasX = null; // Canvas coordinates for interaction handling
+    this.touchStartCanvasY = null;
+    this.touchLastX = null; // Last known touch position (updated during touchMoved)
+    this.touchLastY = null;
+    this.touchLastCanvasX = null;
+    this.touchLastCanvasY = null;
+    this.TOUCH_MOVEMENT_THRESHOLD = 10; // pixels - if moved more than this, treat as scroll/pan
   }
   
   /**
@@ -687,11 +699,198 @@ function touchStarted() {
       }
     }
     
-    // Touch is on canvas, handle it and prevent default scrolling/zooming
-    handleInteraction(x, y);
-    return false; // Prevent default touch behavior (scrolling, zooming) only for canvas touches
+    // Touch is on canvas - track start position for movement detection
+    // Store both screen coordinates (for distance calculation) and canvas coordinates (for interaction)
+    if (app.cachedCanvas) {
+      let rect = app.cachedCanvas.getBoundingClientRect();
+      app.touchStartX = rect.left + x; // Screen coordinates for distance calculation
+      app.touchStartY = rect.top + y;
+      app.touchStartCanvasX = x; // Canvas coordinates for interaction handling
+      app.touchStartCanvasY = y;
+      app.touchStartTime = millis();
+      // Initialize last position to start position
+      app.touchLastX = app.touchStartX;
+      app.touchLastY = app.touchStartY;
+      app.touchLastCanvasX = x;
+      app.touchLastCanvasY = y;
+    } else {
+      // Fallback to canvas coordinates if canvas not cached
+      app.touchStartX = x;
+      app.touchStartY = y;
+      app.touchStartCanvasX = x;
+      app.touchStartCanvasY = y;
+      app.touchStartTime = millis();
+      app.touchLastX = x;
+      app.touchLastY = y;
+      app.touchLastCanvasX = x;
+      app.touchLastCanvasY = y;
+    }
+    
+    // Don't handle interaction yet - wait for touchend to check for movement
+    // Return true to allow default touch behavior (scrolling, panning) until we confirm it's a tap
+    return true;
   }
   return true; // Allow event to propagate if no touches detected
+}
+
+function touchMoved() {
+  // Track the current touch position during movement
+  // This ensures we have the actual end position when touchEnded() is called
+  if (app.touchStartX === null || app.touchStartY === null) {
+    return true; // No active touch tracking
+  }
+  
+  let x, y;
+  if (typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
+      !isNaN(touchX) && !isNaN(touchY) && 
+      isFinite(touchX) && isFinite(touchY)) {
+    x = touchX;
+    y = touchY;
+  } else if (typeof touches !== 'undefined' && touches.length > 0 && touches[0]) {
+    x = touches[0].x;
+    y = touches[0].y;
+  } else {
+    return true; // No valid touch coordinates
+  }
+  
+  // Update last known position
+  if (app.cachedCanvas) {
+    let rect = app.cachedCanvas.getBoundingClientRect();
+    app.touchLastX = rect.left + x;
+    app.touchLastY = rect.top + y;
+    app.touchLastCanvasX = x;
+    app.touchLastCanvasY = y;
+  } else {
+    app.touchLastX = x;
+    app.touchLastY = y;
+    app.touchLastCanvasX = x;
+    app.touchLastCanvasY = y;
+  }
+  
+  return true; // Allow default touch behavior during movement
+}
+
+function touchEnded() {
+  // If modal is open, don't process canvas touches
+  if (isModalOpen()) {
+    app.touchStartX = null;
+    app.touchStartY = null;
+    app.touchStartCanvasX = null;
+    app.touchStartCanvasY = null;
+    app.touchLastX = null;
+    app.touchLastY = null;
+    app.touchLastCanvasX = null;
+    app.touchLastCanvasY = null;
+    app.touchStartTime = null;
+    return true;
+  }
+  
+  // Only process if we have a valid touch start position
+  if (app.touchStartX === null || app.touchStartY === null || 
+      app.touchStartCanvasX === null || app.touchStartCanvasY === null) {
+    return true;
+  }
+  
+  // Use the last tracked position (from touchMoved) if available, otherwise fall back to touchX/touchY
+  // This ensures we get the actual end position even if the user dragged their finger
+  let endX, endY;
+  let endScreenX, endScreenY;
+  
+  if (app.touchLastX !== null && app.touchLastY !== null &&
+      app.touchLastCanvasX !== null && app.touchLastCanvasY !== null) {
+    // Use the last tracked position (most accurate for dragged touches)
+    endX = app.touchLastCanvasX;
+    endY = app.touchLastCanvasY;
+    endScreenX = app.touchLastX;
+    endScreenY = app.touchLastY;
+  } else if (typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
+             !isNaN(touchX) && !isNaN(touchY) && 
+             isFinite(touchX) && isFinite(touchY)) {
+    // Fallback to touchX/touchY if last position wasn't tracked
+    endX = touchX;
+    endY = touchY;
+    if (app.cachedCanvas) {
+      let rect = app.cachedCanvas.getBoundingClientRect();
+      endScreenX = rect.left + endX;
+      endScreenY = rect.top + endY;
+    } else {
+      endScreenX = endX;
+      endScreenY = endY;
+    }
+  } else if (typeof touches !== 'undefined' && touches.length > 0 && touches[0]) {
+    // Fallback to touches array
+    endX = touches[0].x;
+    endY = touches[0].y;
+    if (app.cachedCanvas) {
+      let rect = app.cachedCanvas.getBoundingClientRect();
+      endScreenX = rect.left + endX;
+      endScreenY = rect.top + endY;
+    } else {
+      endScreenX = endX;
+      endScreenY = endY;
+    }
+  } else {
+    // No valid end coordinates - use start position (for very quick taps)
+    endX = app.touchStartCanvasX;
+    endY = app.touchStartCanvasY;
+    endScreenX = app.touchStartX;
+    endScreenY = app.touchStartY;
+  }
+  
+  // Calculate distance moved
+  let deltaX = Math.abs(endScreenX - app.touchStartX);
+  let deltaY = Math.abs(endScreenY - app.touchStartY);
+  let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+  
+  // Reset touch tracking
+  let wasTap = distance < app.TOUCH_MOVEMENT_THRESHOLD;
+  let endCanvasX = endX; // Store end position for interaction handling
+  let endCanvasY = endY;
+  app.touchStartX = null;
+  app.touchStartY = null;
+  app.touchStartCanvasX = null;
+  app.touchStartCanvasY = null;
+  app.touchLastX = null;
+  app.touchLastY = null;
+  app.touchLastCanvasX = null;
+  app.touchLastCanvasY = null;
+  app.touchStartTime = null;
+  
+  // Only handle interaction if it was a tap (not a scroll/pan)
+  if (wasTap) {
+    // Check if touch is on a button or HTML element first
+    if (app.cachedCanvas) {
+      let rect = app.cachedCanvas.getBoundingClientRect();
+      let screenX = rect.left + endCanvasX;
+      let screenY = rect.top + endCanvasY;
+      let elementAtPoint = document.elementFromPoint(screenX, screenY);
+      
+      // If touch is on an HTML element, allow it to work normally
+      if (elementAtPoint) {
+        // Check if it's a form element
+        if (elementAtPoint.tagName === 'BUTTON' || 
+            elementAtPoint.tagName === 'INPUT' || 
+            elementAtPoint.tagName === 'TEXTAREA' ||
+            elementAtPoint.closest('button') ||
+            elementAtPoint.closest('input') ||
+            elementAtPoint.closest('textarea')) {
+          return true; // Allow default behavior for form elements
+        }
+        // Check if it's inside the modal
+        let modal = document.getElementById('entry-modal');
+        if (modal && modal.contains(elementAtPoint)) {
+          return true; // Allow default behavior for modal content
+        }
+      }
+    }
+    
+    // It was a tap on canvas, handle the interaction using the end position
+    handleInteraction(endCanvasX, endCanvasY);
+    return false; // Prevent default touch behavior only for confirmed taps
+  }
+  
+  // It was a scroll/pan, allow default behavior
+  return true;
 }
 
 /**
