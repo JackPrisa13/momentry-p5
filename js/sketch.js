@@ -638,6 +638,12 @@ function mousePressed() {
 }
 
 function touchStarted() {
+  // If modal is open, immediately allow all touch events to propagate to DOM
+  // This ensures modal content (like memory items) can receive touch events properly
+  if (isModalOpen()) {
+    return true;
+  }
+  
   // Use the first touch point
   // In p5.js, touchX/touchY should be available, but use touches array as fallback
   let x, y;
@@ -662,14 +668,22 @@ function touchStarted() {
       let screenY = rect.top + y;
       let elementAtPoint = document.elementFromPoint(screenX, screenY);
       
-      // If touch is on an HTML element (button, input, etc.), allow it to work normally
-      if (elementAtPoint && (elementAtPoint.tagName === 'BUTTON' || 
-          elementAtPoint.tagName === 'INPUT' || 
-          elementAtPoint.tagName === 'TEXTAREA' ||
-          elementAtPoint.closest('button') ||
-          elementAtPoint.closest('input') ||
-          elementAtPoint.closest('textarea'))) {
-        return true; // Allow default behavior for HTML elements
+      // If touch is on an HTML element (button, input, modal content, etc.), allow it to work normally
+      if (elementAtPoint) {
+        // Check if it's a form element
+        if (elementAtPoint.tagName === 'BUTTON' || 
+            elementAtPoint.tagName === 'INPUT' || 
+            elementAtPoint.tagName === 'TEXTAREA' ||
+            elementAtPoint.closest('button') ||
+            elementAtPoint.closest('input') ||
+            elementAtPoint.closest('textarea')) {
+          return true; // Allow default behavior for form elements
+        }
+        // Check if it's inside the modal (including memory items and other clickable divs)
+        let modal = document.getElementById('entry-modal');
+        if (modal && modal.contains(elementAtPoint)) {
+          return true; // Allow default behavior for modal content
+        }
       }
     }
     

@@ -715,9 +715,20 @@ function displayMemoriesList(weeksSinceBirth) {
     `;
     
     // Entire item is clickable to view memory
-    memoryItem.addEventListener('click', function() {
+    // Handle both click and touch events for better mobile support
+    // Use touchstart instead of touchend for more reliable touch handling
+    let viewMemoryHandler = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
       viewMemory(weeksSinceBirth, memory.id);
-    });
+    };
+    
+    memoryItem.addEventListener('click', viewMemoryHandler);
+    memoryItem.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      viewMemory(weeksSinceBirth, memory.id);
+    }, { passive: false }); // passive: false allows preventDefault
     
     memoriesList.appendChild(memoryItem);
   });
