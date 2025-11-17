@@ -75,9 +75,13 @@ class WeekCircle {
         }
         
         // Calculate isPast ONCE
+        // A week is "past" only if its Sunday (end of week) has passed
+        // This ensures the current week stays as "future" until the week is completely over
         let todayStart = new Date(today);
         todayStart.setHours(0, 0, 0, 0);
-        this.isPast = weekMondayStart < todayStart;
+        let weekSundayEnd = new Date(this.weekRange.endDate);
+        weekSundayEnd.setHours(0, 0, 0, 0);
+        this.isPast = weekSundayEnd < todayStart;
         
         // Cache hasData check
         this.hasData = this.checkHasData();
