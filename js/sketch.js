@@ -113,12 +113,12 @@ class App {
     let birthWeekInfo = getISOWeekNumber(dateToUse);
     let birthWeekRange = getWeekDateRange(birthWeekInfo.weekNumber - 1, birthWeekInfo.year);
     let birthWeekStart = new Date(birthWeekRange.startDate);
-    birthWeekStart.setHours(0, 0, 0, 0);
+    birthWeekStart.setUTCHours(0, 0, 0, 0);
     
     // Determine the Monday for the given week
     let weekRange = getWeekDateRange(weekIndex, year);
     let weekStartDate = new Date(weekRange.startDate);
-    weekStartDate.setHours(0, 0, 0, 0);
+    weekStartDate.setUTCHours(0, 0, 0, 0);
     
     // Calculate difference based on week starts so each ISO week maps to a unique index
     let diffTime = weekStartDate.getTime() - birthWeekStart.getTime();

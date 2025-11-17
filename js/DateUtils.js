@@ -86,24 +86,18 @@ function getWeeksSinceBirth(weekIndex, year, birthDate) {
  * @returns {Date} - The Thursday date of that week
  */
 function getDateFromWeekIndex(weekIndex, year) {
-  // Get January 1st of the year
-  let jan1 = new Date(year, 0, 1);
+  // Work entirely in UTC to avoid timezone offsets/DST issues
+  let jan1 = new Date(Date.UTC(year, 0, 1));
   
   // Find the first Thursday of the ISO year
-  // ISO week 1 is the week containing the first Thursday
   let firstThursday = new Date(jan1);
-  let dayOfWeek = jan1.getDay();
+  let dayOfWeek = firstThursday.getUTCDay();
   let daysToThursday = (4 - dayOfWeek + 7) % 7;
-  firstThursday.setDate(jan1.getDate() + daysToThursday);
+  firstThursday.setUTCDate(firstThursday.getUTCDate() + daysToThursday);
   
-  /* If the first Thursday is in the previous calendar year,
-  it means week 1 of this ISO year starts in December of previous year
-  In this case, the first Thursday is correct, but we need to handle it properly
-   */
-  
-  // Calculate the date for the given week (weekIndex 0 = week 1)
+  // Calculate the Thursday for the requested week (weekIndex 0 = week 1)
   let weekDate = new Date(firstThursday);
-  weekDate.setDate(firstThursday.getDate() + (weekIndex * 7));
+  weekDate.setUTCDate(firstThursday.getUTCDate() + (weekIndex * 7));
   
   return weekDate;
 }
@@ -137,12 +131,12 @@ function getWeekDateRange(weekIndex, year) {
   // Monday is always exactly 3 days before Thursday
   let monday = new Date(weekThursday);
   monday.setDate(weekThursday.getDate() - 3);
-  monday.setHours(0, 0, 0, 0);
+  monday.setUTCHours(0, 0, 0, 0);
   
   // Sunday is always exactly 6 days after Monday (or 3 days after Thursday)
   let sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
+  sunday.setUTCHours(23, 59, 59, 999);
   
   return {
     startDate: monday,
@@ -168,11 +162,10 @@ function getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate) {
   let birthWeekInfo = getISOWeekNumber(birthDate);
   let birthWeekRange = getWeekDateRange(birthWeekInfo.weekNumber - 1, birthWeekInfo.year);
   let birthWeekStart = new Date(birthWeekRange.startDate);
-  birthWeekStart.setHours(0, 0, 0, 0);
+  birthWeekStart.setUTCHours(0, 0, 0, 0);
   
   // Move forward by weeksSinceBirth weeks from that Monday anchor
-  let targetDate = new Date(birthWeekStart);
-  targetDate.setDate(birthWeekStart.getDate() + (weeksSinceBirth * 7));
+  let targetDate = new Date(birthWeekStart.getTime() + weeksSinceBirth * 7 * 24 * 60 * 60 * 1000);
   
   // Derive ISO week/year for the resulting date
   let isoWeekInfo = getISOWeekNumber(targetDate);
@@ -193,6 +186,6 @@ function getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate) {
  */
 function normalizeDateToStartOfDay(date) {
   let normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
+  normalized.setUTCHours(0, 0, 0, 0);
   return normalized;
 }
