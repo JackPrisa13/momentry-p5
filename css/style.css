@@ -31,11 +31,15 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Match canvas background color to prevent white flash during overscroll */
+  background-color: #F7F6E4;
 }
 
 canvas {
   display: block;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Prevent browser zoom and scroll on canvas - allows JavaScript to handle all touch events */
+  touch-action: none;
 }
 
 /* Home Button */
@@ -219,6 +223,8 @@ canvas {
   z-index: 1000;
   justify-content: center;
   align-items: center;
+  /* Prevent scrolling when touching the modal overlay */
+  touch-action: none;
 }
 
 #entry-modal.show {
@@ -246,6 +252,8 @@ body:has(#entry-modal.show) canvas {
   pointer-events: auto; /* Ensure modal content is clickable */
   position: relative;
   z-index: 1001;
+  /* Prevent scrolling on modal content itself - only allow scrolling in #memories-list */
+  touch-action: none;
 }
 
 #modal-title {
@@ -401,6 +409,12 @@ body:has(#entry-modal.show) canvas {
   /* Custom scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: #BFC0B1 #F5F4E3;
+  /* Allow vertical scrolling in memories list, prevent zoom and horizontal panning */
+  touch-action: pan-y;
+  /* Ensure smooth scrolling works on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Prevent overscroll from affecting parent containers (modal, body, canvas) */
+  overscroll-behavior: contain;
 }
 
 /* Webkit scrollbar styling for Chrome/Safari */

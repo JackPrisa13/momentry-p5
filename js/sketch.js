@@ -574,7 +574,7 @@ function isClickOnCircle(week, x, y) {
   let coordY = y !== undefined ? y : getInteractionY();
   
   // Only validate if coordinates came from fallback (touch coordinates might be invalid)
-  // If x/y were passed directly (from mousePressed/touchStarted), they're already validated
+  // If x/y were passed directly (from mouseClicked/touchStarted), they're already validated
   if (x === undefined || y === undefined) {
     // Coordinates came from fallback - validate they're valid numbers
     if (isNaN(coordX) || isNaN(coordY) || !isFinite(coordX) || !isFinite(coordY)) {
@@ -645,7 +645,7 @@ function handleInteraction(x, y) {
   }
 }
 
-function mousePressed() {
+function mouseClicked() {
   handleInteraction(mouseX, mouseY);
 }
 
@@ -734,6 +734,11 @@ function touchStarted() {
 }
 
 function touchMoved() {
+  // If modal is open, don't interfere with touch events - allow scrolling
+  if (isModalOpen()) {
+    return true;
+  }
+  
   // Track the current touch position during movement
   // This ensures we have the actual end position when touchEnded() is called
   if (app.touchStartX === null || app.touchStartY === null) {
