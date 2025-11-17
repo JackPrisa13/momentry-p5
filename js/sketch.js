@@ -85,6 +85,10 @@ class App {
     this.touchLastCanvasX = null;
     this.touchLastCanvasY = null;
     this.TOUCH_MOVEMENT_THRESHOLD = 10; // pixels - if moved more than this, treat as scroll/pan
+    
+    // Mouse press tracking to prevent drag-onto-element behavior
+    this.mousePressTarget = null; // Stores what was pressed: 'circle', 'goal', or null
+    this.mousePressTargetId = null; // Stores the specific ID (week.id or goal memoryId) for matching
   }
   
   /**
@@ -587,6 +591,44 @@ function isClickOnCircle(week, x, y) {
 }
 
 /**
+ * identifyElementAtPosition()
+ * Identifies what interactive element (if any) is at the given position
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {Object|null} - {type: 'circle', id: week.id} or {type: 'goal', id: goal.memoryId} or null
+ */
+function identifyElementAtPosition(x, y) {
+  // Skip if modal is open or on starting page
+  if (isModalOpen() || app.showStartingPage) {
+    return null;
+  }
+  
+  // Skip if clicking on a button
+  if (isButtonClick(x, y)) {
+    return null;
+  }
+  
+  // Check if a goal countdown card was clicked
+  if (app.goalCountdown) {
+    let clickedGoal = app.goalCountdown.checkClick(x, y);
+    if (clickedGoal) {
+      return { type: 'goal', id: clickedGoal.memoryId };
+    }
+  }
+  
+  // Check which circle was clicked
+  for (let week of app.weeks) {
+    if (week.isBeforeBirth) continue;
+    
+    if (isClickOnCircle(week, x, y)) {
+      return { type: 'circle', id: week.id };
+    }
+  }
+  
+  return null; // Nothing interactive at this position
+}
+
+/**
  * handleInteraction()
  * Shared handler for both mouse and touch interactions
  * @param {number} x - X coordinate
@@ -645,8 +687,50 @@ function handleInteraction(x, y) {
   }
 }
 
+function mousePressed() {
+  // Track what element was pressed (if any) to prevent drag-onto-element behavior
+  // Only track if not on starting page and modal is closed
+  if (!app.showStartingPage && !isModalOpen()) {
+    let element = identifyElementAtPosition(mouseX, mouseY);
+    if (element) {
+      app.mousePressTarget = element.type;
+      app.mousePressTargetId = element.id;
+    } else {
+      app.mousePressTarget = null;
+      app.mousePressTargetId = null;
+    }
+  } else {
+    app.mousePressTarget = null;
+    app.mousePressTargetId = null;
+  }
+}
+
 function mouseClicked() {
-  handleInteraction(mouseX, mouseY);
+  // Only trigger if we pressed and released on the same element
+  if (!app.showStartingPage && !isModalOpen()) {
+    let releaseElement = identifyElementAtPosition(mouseX, mouseY);
+    
+    // Check if press and release match
+    if (app.mousePressTarget && releaseElement) {
+      if (app.mousePressTarget === releaseElement.type && 
+          app.mousePressTargetId === releaseElement.id) {
+        // Press and release on same element - trigger interaction
+        handleInteraction(mouseX, mouseY);
+      }
+      // Otherwise, press and release don't match - ignore (prevent drag-onto behavior)
+    } else if (!app.mousePressTarget && !releaseElement) {
+      // Pressed and released on empty canvas - no interaction
+      // (This case is already handled by handleInteraction returning early)
+    }
+    // If pressed on empty but released on element, or vice versa - ignore
+    
+    // Reset tracking
+    app.mousePressTarget = null;
+    app.mousePressTargetId = null;
+  } else {
+    // On starting page or modal open - use normal behavior
+    handleInteraction(mouseX, mouseY);
+  }
 }
 
 function touchStarted() {
