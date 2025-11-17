@@ -109,11 +109,20 @@ class App {
       year = this.currentDisplayYear || new Date().getFullYear();
     }
     
-    // Use the same logic as DateUtils version
-    let weekStartDate = getDateFromWeekIndex(weekIndex, year);
-    let diffTime = weekStartDate.getTime() - dateToUse.getTime();
-    let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    let weeksSinceBirth = Math.floor(diffDays / 7);
+    // Determine the Monday of the week that contains the birth date (ISO week start)
+    let birthWeekInfo = getISOWeekNumber(dateToUse);
+    let birthWeekRange = getWeekDateRange(birthWeekInfo.weekNumber - 1, birthWeekInfo.year);
+    let birthWeekStart = new Date(birthWeekRange.startDate);
+    birthWeekStart.setHours(0, 0, 0, 0);
+    
+    // Determine the Monday for the given week
+    let weekRange = getWeekDateRange(weekIndex, year);
+    let weekStartDate = new Date(weekRange.startDate);
+    weekStartDate.setHours(0, 0, 0, 0);
+    
+    // Calculate difference based on week starts so each ISO week maps to a unique index
+    let diffTime = weekStartDate.getTime() - birthWeekStart.getTime();
+    let weeksSinceBirth = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
     
     return Math.max(0, weeksSinceBirth);
   }
@@ -417,7 +426,7 @@ function draw() {
 
   // Cache interaction coordinates once per frame (avoid checking touches.length 52 times)
   // This is a performance optimization for mobile browsers
-  // Validate touch coordinates are valid numbers before using them (fixes GitHub Pages freeze)
+  // Validate touch coordinates are valid numbers before using them
   let interactionX, interactionY;
   if (typeof touches !== 'undefined' && touches.length > 0 && 
       typeof touchX !== 'undefined' && typeof touchY !== 'undefined' &&
@@ -1153,12 +1162,12 @@ function returnToHome() {
 function navigateToYear(year) {
   if (!app.birthDate) return; // Can't navigate without birth date
   
-  // Get birth year to prevent navigating before birth
-  let birthYear = app.birthDate.getFullYear();
+  // Get ISO birth year to prevent navigating before the actual first lived week
+  let isoBirthYear = getISOWeekNumber(app.birthDate).year;
   
-  // Prevent navigating to years before birth year
-  if (year < birthYear) {
-    console.error(`Cannot navigate to year ${year} - before birth year ${birthYear}`);
+  // Prevent navigating to years before ISO birth year
+  if (year < isoBirthYear) {
+    console.error(`Cannot navigate to year ${year} - before ISO birth year ${isoBirthYear}`);
     return;
   }
   
@@ -1284,9 +1293,9 @@ function updateNavigationButtons() {
   
   // Disable previous button if at or before birth year
   if (app.birthDate) {
-    let birthYear = app.birthDate.getFullYear();
-    if (app.currentDisplayYear <= birthYear) {
-      // Disable previous button - can't go before birth year
+    let isoBirthYear = getISOWeekNumber(app.birthDate).year;
+    if (app.currentDisplayYear <= isoBirthYear) {
+      // Disable previous button - can't go before ISO birth year
       prevBtn.disabled = true;
       } else {
       // Enable previous button
@@ -1307,10 +1316,10 @@ function initializeMainApp(year) {
   
   // Prevent navigation before birth year
   if (app.birthDate) {
-    let birthYear = app.birthDate.getFullYear();
-    if (year < birthYear) {
-      console.error(`Cannot initialize to year ${year} - before birth year ${birthYear}. Using birth year instead.`);
-      year = birthYear;
+    let isoBirthYear = getISOWeekNumber(app.birthDate).year;
+    if (year < isoBirthYear) {
+      console.error(`Cannot initialize to year ${year} - before ISO birth year ${isoBirthYear}. Using ISO birth year instead.`);
+      year = isoBirthYear;
     }
   }
   

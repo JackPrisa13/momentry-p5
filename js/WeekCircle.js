@@ -66,10 +66,13 @@ class WeekCircle {
         weekMondayStart.setHours(0, 0, 0, 0);
         
         // Calculate isBeforeBirth ONCE
+        let weekSundayEnd = new Date(this.weekRange.endDate);
+        weekSundayEnd.setHours(0, 0, 0, 0);
         if (birthDate) {
             let birthDateStart = new Date(birthDate);
             birthDateStart.setHours(0, 0, 0, 0);
-            this.isBeforeBirth = weekMondayStart < birthDateStart;
+            // Consider week "before birth" only if the entire week ends before birth date
+            this.isBeforeBirth = weekSundayEnd < birthDateStart;
         } else {
             this.isBeforeBirth = false;
         }
@@ -79,8 +82,6 @@ class WeekCircle {
         // This ensures the current week stays as "future" until the week is completely over
         let todayStart = new Date(today);
         todayStart.setHours(0, 0, 0, 0);
-        let weekSundayEnd = new Date(this.weekRange.endDate);
-        weekSundayEnd.setHours(0, 0, 0, 0);
         this.isPast = weekSundayEnd < todayStart;
         
         // Cache hasData check

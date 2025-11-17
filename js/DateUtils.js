@@ -12,47 +12,19 @@
  * @returns {Object} - Object with weekNumber (1-53) and year (the ISO year, which may differ from calendar year)
  */
 function getISOWeekNumber(date) {
-  // Create a new date object to avoid modifying the original
-  let d = new Date(date.getTime());
+  // Work in UTC to avoid timezone/DST discrepancies
+  let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   
-  // Set to nearest Thursday: current date + 4 - current day number
-  // Sunday's day number is 7 (ISO week standard)
-  let dayNum = d.getDay() || 7;
-  d.setDate(d.getDate() + 4 - dayNum);
+  // Thursday is always in the ISO week year
+  let day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
   
-  // The year of the Thursday determines the ISO week year
-  // Handles cases where week 1 of a year starts in December of previous year
-  let isoYear = d.getFullYear();
+  // ISO year is the year of the adjusted date
+  let isoYear = d.getUTCFullYear();
   
-  // Get first day of the ISO year (January 1st of that year)
-  let yearStart = new Date(isoYear, 0, 1);
-  
-  // Calculate full weeks to nearest Thursday
+  // Calculate week number: weeks since first Thursday of ISO year
+  let yearStart = new Date(Date.UTC(isoYear, 0, 1));
   let weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  
-  // Handle edge case: if week number is 0, it belongs to the previous year's last week
-  if (weekNo === 0) {
-    isoYear--;
-    // Get the last week of the previous year
-    let prevYearStart = new Date(isoYear, 0, 1);
-    let prevYearEnd = new Date(isoYear, 11, 31);
-    let prevYearThursday = new Date(prevYearEnd);
-    let prevDayNum = prevYearThursday.getDay() || 7;
-    prevYearThursday.setDate(prevYearThursday.getDate() + 4 - prevDayNum);
-    weekNo = Math.ceil((((prevYearThursday - prevYearStart) / 86400000) + 1) / 7);
-  }
-  
-  // Handle edge case: if week number is 53, check if it's actually week 1 of next year
-  if (weekNo === 53) {
-    // Check if January 1st of next year falls in this week
-    let nextYearJan1 = new Date(isoYear + 1, 0, 1);
-    let nextYearDayNum = nextYearJan1.getDay() || 7;
-    // If Jan 1 is Thursday or earlier in the week, week 53 is actually week 1 of next year
-    if (nextYearDayNum <= 4) {
-      isoYear++;
-      weekNo = 1;
-    }
-  }
   
   return {
     weekNumber: weekNo,
@@ -192,20 +164,21 @@ function getYearAndWeekIndexFromWeeksSinceBirth(weeksSinceBirth, birthDate) {
     return null;
   }
   
-  // Calculate the date that is 'weeksSinceBirth' weeks after birth
-  let targetDate = new Date(birthDate);
-  targetDate.setDate(birthDate.getDate() + (weeksSinceBirth * 7));
+  // Anchor to the Monday of the birth week (same anchor used in getWeeksSinceBirth)
+  let birthWeekInfo = getISOWeekNumber(birthDate);
+  let birthWeekRange = getWeekDateRange(birthWeekInfo.weekNumber - 1, birthWeekInfo.year);
+  let birthWeekStart = new Date(birthWeekRange.startDate);
+  birthWeekStart.setHours(0, 0, 0, 0);
   
-  // Get the year of this date
-  let year = targetDate.getFullYear();
+  // Move forward by weeksSinceBirth weeks from that Monday anchor
+  let targetDate = new Date(birthWeekStart);
+  targetDate.setDate(birthWeekStart.getDate() + (weeksSinceBirth * 7));
   
-  // Calculate which week index (0-51) this date falls in using ISO week
+  // Derive ISO week/year for the resulting date
   let isoWeekInfo = getISOWeekNumber(targetDate);
   let weekIndex = isoWeekInfo.weekNumber - 1; // Convert to 0-based index
   let isoYear = isoWeekInfo.year;
   
-  // Use the ISO year (which correctly handles year boundaries)
-  // Weeks spanning December-January are assigned to the correct ISO year
   return {
     year: isoYear,
     weekIndex: weekIndex
